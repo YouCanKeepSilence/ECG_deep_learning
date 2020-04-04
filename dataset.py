@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
-import sklearn
+import torch
+import torch.utils.data as data_utils
+from sklearn.model_selection import train_test_split
 
 
 def get_prepared_dataset(file_path, names, target_column, columns_to_delete, *,
@@ -13,7 +15,7 @@ def get_prepared_dataset(file_path, names, target_column, columns_to_delete, *,
     :param columns_to_delete: Столбцы, которые нужно удалить
     :param augmentation_multiplier: Кол-во повторений в аугментации
     :param augmentation_slice_size: Размер "окна" в аугментации
-    :return: pd.DataFrame с данными
+    :return: X, y
     """
     df = _load_raw_data(file_path, names)
     df = _normalize_data(df, target_column, columns_to_delete)
@@ -22,19 +24,28 @@ def get_prepared_dataset(file_path, names, target_column, columns_to_delete, *,
     check_na_series = df.isnull().sum()
     if len(check_na_series[check_na_series > 0].index) != 0:
         raise Exception('There are some NA values in Dataset')
-    return df
+    X = df.drop(target_column, axis=1).to_numpy(dtype=np.float32)
+    y = df[target_column].to_numpy(dtype=np.long)
+    y -= 1
+    return X, y
 
 
-def split(x, y, test_size, random_state=42):
+def split(x, y, test_size, random_state=42, batch_size=10000):
     """
     Просто обертка для разбития на тестовую и тренировочную выборку
     :param x:
     :param y:
     :param test_size: Размер в процентах тестовой выборки
     :param random_state:
+    :param batch_size: Размер батча
     :return: Разбитые данные X_train, X_test, y_train, y_test
     """
-    return sklearn.model_selection.train_test_split(x, y, test_size=test_size, random_state=random_state)
+    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
+    train = data_utils.TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
+    test = data_utils.TensorDataset(torch.from_numpy(X_test), torch.from_numpy(y_test))
+    train_loader = data_utils.DataLoader(train, batch_size=batch_size, shuffle=True)
+    test_loader = data_utils.DataLoader(test, batch_size=batch_size, shuffle=True)
+    return train_loader, test_loader
 
 
 def _load_raw_data(file_path, names):
