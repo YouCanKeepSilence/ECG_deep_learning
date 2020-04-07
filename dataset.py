@@ -67,6 +67,7 @@ def _augmentation(df, multiplier, slice_size):
     :param slice_size: Размер "окна" среза
     :return: Аугментированный датасет
     """
+
     old_batch = 5000
     sensors_count = 12
     non_sliceable_columns = df.iloc[:, 0:3]
@@ -77,8 +78,8 @@ def _augmentation(df, multiplier, slice_size):
     for i in range(multiplier):
         low_border = np.random.randint(0, old_batch - slice_size)
         indexes = []
-        for j in range(sensors_count):
-            indexes.extend([i * old_batch + low_border + j for j in range(slice_size)])
+        for k in range(sensors_count):
+            indexes.extend([k * old_batch + low_border + j for j in range(slice_size)])
 
         sliced = sliceable_columns.iloc[:, indexes]
         new_measure_names = {x: y for x, y in zip(sliced.columns, final_measures_names)}
@@ -110,7 +111,7 @@ def _normalize_data(df, target_column_name, columns_to_remove):
         numerical_names.remove(target_column_name)
 
     if target_column_name in categorical_names:
-     categorical_names.remove(target_column_name)
+        categorical_names.remove(target_column_name)
 
 
     # Векторизация категориальных признаков, за исключением целевого
@@ -120,9 +121,13 @@ def _normalize_data(df, target_column_name, columns_to_remove):
             # Если так, то проводим бинаризацию
             for idx, value in enumerate(unique_values):
                 df.at[df[categorical_name] == value, categorical_name] = idx
+
+            categorical_names.remove(categorical_name)
+            numerical_names.append(categorical_name)
         else:
             # Иначе onehot encoding, но тут нет необходимости, т.к. из категориальных только пол
             raise Exception(f'Not implemented OneHot Encoding for categorical column {categorical_name}')
+
 
     # Нормировка числовых переменных
     numerical_data = df[numerical_names]

@@ -41,21 +41,21 @@ def evaluate(model, test_loader, criterion):
 def train(args):
     writer = SummaryWriter(f'./logs/{datetime.datetime.now()}')
     X, y = get_prepared_dataset(file_path, names_array, target_column, useless_columns,
-                                                     augmentation_multiplier=2)
+                                                     augmentation_multiplier=20, augmentation_slice_size=1000)
 
-    train_loader, test_loader = split(X, y, test_size=0.3, batch_size=1000)
+    train_loader, test_loader = split(X, y, test_size=0.2, batch_size=10000, random_state=13)
     net = getattr(models, args.type)(args.num_classes, X.shape[1])
+
     # batch size, channel count, height, width
     # writer.add_graph(net, torch.zeros(1, 1, 28, 28))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.1)
 
     for e in range(args.epochs):
         net.train()
         for i, (x, y) in enumerate(train_loader):
             # flush gradient
-            x = torch.autograd.Variable(x)
-            y = torch.autograd.Variable(y)
             optimizer.zero_grad()
             # forward
             out = net(x)
@@ -75,7 +75,7 @@ def train(args):
                 print(f'Epoch: {e}, Val Loss: {val_loss}, Val Acc: {val_acc}')
                 writer.add_scalar('Val/Loss', val_loss, e * len(train_loader) + i)  # last arg is global iterator
                 writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
-
+        scheduler.step()
 
 
 if __name__ == '__main__':
