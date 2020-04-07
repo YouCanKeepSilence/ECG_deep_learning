@@ -41,11 +41,12 @@ def split(x, y, test_size, random_state=42, batch_size=10000):
     :return: Разбитые данные X_train, X_test, y_train, y_test
     """
     X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
-    # train = data_utils.TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
-    # test = data_utils.TensorDataset(torch.from_numpy(X_test), torch.from_numpy(y_test))
-    # train_loader = data_utils.DataLoader(train, batch_size=batch_size)
-    # test_loader = data_utils.DataLoader(test, batch_size=batch_size)
-    return [(torch.from_numpy(X_train), torch.from_numpy(y_train))], [(torch.from_numpy(X_test), torch.from_numpy(y_test))] # train_loader, test_loader
+    train = data_utils.TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
+    test = data_utils.TensorDataset(torch.from_numpy(X_test), torch.from_numpy(y_test))
+    train_loader = data_utils.DataLoader(train, batch_size=batch_size)
+    test_loader = data_utils.DataLoader(test, batch_size=batch_size)
+    return train_loader, test_loader
+    # return [(torch.from_numpy(X_train), torch.from_numpy(y_train))], [(torch.from_numpy(X_test), torch.from_numpy(y_test))] # train_loader, test_loader
 
 
 def _load_raw_data(file_path, names):
@@ -113,7 +114,6 @@ def _normalize_data(df, target_column_name, columns_to_remove):
     if target_column_name in categorical_names:
         categorical_names.remove(target_column_name)
 
-
     # Векторизация категориальных признаков, за исключением целевого
     for categorical_name in categorical_names:
         unique_values = df[categorical_name].unique()
@@ -127,7 +127,6 @@ def _normalize_data(df, target_column_name, columns_to_remove):
         else:
             # Иначе onehot encoding, но тут нет необходимости, т.к. из категориальных только пол
             raise Exception(f'Not implemented OneHot Encoding for categorical column {categorical_name}')
-
 
     # Нормировка числовых переменных
     numerical_data = df[numerical_names]
