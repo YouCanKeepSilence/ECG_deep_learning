@@ -48,8 +48,6 @@ def train(args):
     train_loader, test_loader = split(X, y, test_size=0.2, batch_size=args.batch, random_state=13)
     net = getattr(models, args.type)(args.num_classes, X.shape[1])
 
-    # batch size, channel count, height, width
-    # writer.add_graph(net, torch.zeros(1, 1, 28, 28))
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
 
@@ -67,7 +65,6 @@ def train(args):
             # backward
             loss.backward()
             optimizer.step()
-            # writer.add_scalar('Train/LR', scheduler.get_lr()[0], e * len(train_loader) + i)
             if i % args.print_every == 0:
                 val_loss, val_acc = evaluate(net, test_loader, criterion)
                 print(f'Epoch: {e}, Iteration: {i} \n'
@@ -85,10 +82,10 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
-    parser.add_argument('--epochs', type=int, default=80, help='Total number of epochs.')
+    parser.add_argument('--epochs', type=int, default=40, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=10000, help='Batch size.')
     parser.add_argument('--slice', type=int, default=1000, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=20, help='Number of repeats of augmentation process.')
+    parser.add_argument('--multiplier', type=int, default=20, help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
     parser.add_argument('--type', choices=['CNN', 'MLP'], default='MLP', help='Type of Network')

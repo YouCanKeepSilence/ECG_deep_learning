@@ -41,8 +41,8 @@ def split(x, y, test_size, random_state=42, batch_size=10000):
     :return: Разбитые данные X_train, X_test, y_train, y_test
     """
     X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=test_size, random_state=random_state)
-    train = data_utils.TensorDataset(torch.from_numpy(X_train), torch.from_numpy(y_train))
-    test = data_utils.TensorDataset(torch.from_numpy(X_test), torch.from_numpy(y_test))
+    train = data_utils.TensorDataset(torch.from_numpy(X_train).unsqueeze(1), torch.from_numpy(y_train))
+    test = data_utils.TensorDataset(torch.from_numpy(X_test).unsqueeze(1), torch.from_numpy(y_test))
     train_loader = data_utils.DataLoader(train, batch_size=batch_size)
     test_loader = data_utils.DataLoader(test, batch_size=batch_size)
     return train_loader, test_loader
