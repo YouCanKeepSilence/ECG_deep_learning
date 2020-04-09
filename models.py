@@ -31,10 +31,11 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         self.num_classes = num_classes
 
-        self.conv1 = nn.Conv1d(1, 32, kernel_size=3)
+        self.conv1 = nn.Conv1d(1, 4, kernel_size=3)
+        # TODO add pooling
         # self.conv2 = nn.Conv1d(64, 128, kernel_size=3)
         # self.conv3 = nn.Conv1d(128, 256, kernel_size=3)
-        self.fc1 = nn.Linear((count_of_features - 2) * 32, 784)
+        self.fc1 = nn.Linear((count_of_features - 2) * 4, 784)
         self.fc2 = nn.Linear(784, 256)
         self.fc3 = nn.Linear(256, num_classes)
 
