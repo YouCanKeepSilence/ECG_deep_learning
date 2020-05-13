@@ -8,6 +8,7 @@ import torch
 import torch.utils.data as data_utils
 from keras.preprocessing import sequence
 from sklearn.model_selection import train_test_split
+from torchvision.transforms import transforms
 
 
 class Loader:
@@ -48,9 +49,10 @@ class Loader:
         if normalize:
             data.dropna(axis=0, inplace=True)
             data.drop(data[data['age'] == -1].index, inplace=True)
-            data['age'] = data['age'].astype(int)
+            data['age'] = data['age'].astype(np.float32)
             data.at[data['gender'] == 'Male', 'gender'] = 0
             data.at[data['gender'] == 'Female', 'gender'] = 1
+            data['gender'] = data['gender'].astype(np.float32)
         return data
 
 
@@ -71,6 +73,9 @@ class ECGDataset(data_utils.Dataset):
         self.data = data
         self.data_len = len(data)
         self.ecg_shape = (sensors_count, slice_len)
+        self.non_ecg_numpy = np.stack(self.data[['age', 'gender']].to_numpy())
+        self.labels_numpy = self.data['label'].to_numpy() - 1
+        self.ecg_numpy = np.stack(self.data['ecg'])
 
     def __len__(self):
         return len(self.data) * self.slices_count
@@ -78,23 +83,18 @@ class ECGDataset(data_utils.Dataset):
     def __getitem__(self, idx):
         current_slice_idx = int(np.floor(idx / self.data_len))
         offset = current_slice_idx * self.data_len
-        slice_start = self.slice_starts[current_slice_idx]
-        slice_end = slice_start + self.slice_len
+        slice_starter = self.slice_starts[current_slice_idx]
+        slice_ender = slice_starter + self.slice_len
         current_idx = idx - offset
-        label = self.data.iloc[current_idx]['label']
-        non_ecg_tensor = self.data.iloc[current_idx][['age', 'gender']].to_numpy()
-        ecg_tensor = self.data.iloc[current_idx]['ecg'][:, slice_start:slice_end]
+        label = self.labels_numpy[current_idx]
+        non_ecg_tensor = self.non_ecg_numpy[current_idx]
+        ecg_tensor = self.ecg_numpy[current_idx, :, slice_starter: slice_ender]
         if self.sensors_transform:
             # TODO transform
             pass
         if self.non_sensors_transform:
             pass
-        print(label, non_ecg_tensor, ecg_tensor)
-        return {
-            'non_ecg': non_ecg_tensor,
-            'ecg': ecg_tensor,
-            'y': label
-        }
+        return non_ecg_tensor, ecg_tensor, label
 
 
 def get_prepared_dataset(file_path, names, target_column, columns_to_delete, *,

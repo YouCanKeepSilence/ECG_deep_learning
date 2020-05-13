@@ -46,24 +46,29 @@ def evaluate(model, test_loader, criterion):
 
 def new_train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}')
-    torch.random.manual_seed(42)
     print(f'{datetime.datetime.now()} start loading df')
     df = dataset.Loader(data_path, reference_path).load_as_df_for_net(normalize=True)
     print(f'{datetime.datetime.now()} start split df')
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.2)
     print(f'{datetime.datetime.now()} start create torch df')
-    train_df = dataset.ECGDataset(train_df, slices_count=20, slice_len=2500, random_state=42)
-    test_df = dataset.ECGDataset(test_df, slices_count=20, slice_len=2500, random_state=42)
+    train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
+    test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     print(f'{datetime.datetime.now()} start create torch loader')
     train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=8)
     test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=8)
+    use_cuda = torch.cuda.is_available()
+    print(f'Use cuda {use_cuda}')
     net = models.CNN(args.num_classes)
+    if use_cuda:
+        net = net.cuda()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
     print(f'{datetime.datetime.now()} start training')
     for e in range(args.epochs):
         net.train()
         for i, (non_ecg, ecg, y) in enumerate(train_loader):
+            if use_cuda:
+                non_ecg, ecg = non_ecg.cuda(), ecg.cuda()
             # flush gradient
             optimizer.zero_grad()
             # forward
@@ -134,7 +139,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=40, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=1000, help='Batch size.')
-    parser.add_argument('--slice', type=int, default=1000, help='Wide of augmentation window.')
+    parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
     parser.add_argument('--multiplier', type=int, default=20, help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
