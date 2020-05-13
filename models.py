@@ -38,9 +38,10 @@ class CNN(nn.Module):
         self.pooling = nn.AvgPool1d(kernel_size=3, stride=3)
         self.dropout = nn.Dropout(0.5)
         self.fc_bn = nn.BatchNorm1d(8736 + 2)
-        self.fc1 = nn.Linear(8736 + 2, 784)
-        self.fc2 = nn.Linear(784, 256)
-        self.fc3 = nn.Linear(256, num_classes)
+        self.fc1 = nn.Linear(8736 + 2, 2048)
+        self.fc2 = nn.Linear(2048, 1024)
+        self.fc3 = nn.Linear(1024, 256)
+        self.fc4 = nn.Linear(256, num_classes)
 
     def forward(self, non_ecg, ecg):
         x = ecg
@@ -57,5 +58,7 @@ class CNN(nn.Module):
         x = self.dropout(x)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        x = self.dropout(x)
+        x = F.relu(self.fc3(x))
+        x = self.fc4(x)
+        return F.log_softmax(x, dim=1)

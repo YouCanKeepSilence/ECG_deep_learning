@@ -25,18 +25,21 @@ names_array = ['gender', 'age', 'first_label', 'second_label', 'third_label',
 def evaluate(model, test_loader, criterion):
     # production mode to NN (batch_norm to statistics (mean, divergence), dropout off)
     model.eval()
+    use_cuda = torch.cuda.is_available()
     # disable gradient
     with torch.no_grad():
         avg_loss = 0.0
         val_acc = 0
         for non_ecg, ecg, y in test_loader:
             # forward
+            if use_cuda:
+                non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
             out = model(non_ecg, ecg)
             # calcilate loss
             loss = criterion(out, y)
             # 1 means axis 1
             _, pred = torch.max(out.data, 1)
-            val_acc += (pred == y).numpy().mean()
+            val_acc += pred.eq(y).sum().item() / y.size(0)
             avg_loss += loss.item()
         avg_loss /= len(test_loader)
         val_acc /= len(test_loader)
@@ -45,7 +48,7 @@ def evaluate(model, test_loader, criterion):
 
 
 def new_train(args):
-    writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}')
+    writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
     print(f'{datetime.datetime.now()} start loading df')
     df = dataset.Loader(data_path, reference_path).load_as_df_for_net(normalize=True)
     print(f'{datetime.datetime.now()} start split df')
@@ -54,8 +57,8 @@ def new_train(args):
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     print(f'{datetime.datetime.now()} start create torch loader')
-    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=8)
-    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=8)
+    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=4)
+    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4)
     use_cuda = torch.cuda.is_available()
     print(f'Use cuda {use_cuda}')
     net = models.CNN(args.num_classes)
@@ -68,7 +71,7 @@ def new_train(args):
         net.train()
         for i, (non_ecg, ecg, y) in enumerate(train_loader):
             if use_cuda:
-                non_ecg, ecg = non_ecg.cuda(), ecg.cuda()
+                non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
             # flush gradient
             optimizer.zero_grad()
             # forward
@@ -88,7 +91,7 @@ def new_train(args):
                       f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
                       f'-----------------------------------------\n'
                       )
-                writer.add_scalar('Train/Acc', acc, e * len(train_loader))
+                writer.add_scalar('Train/Acc', acc, e * len(train_loader) + i)
                 writer.add_scalar('Train/Loss', loss.item(), e * len(train_loader) + i)
                 writer.add_scalar('Val/Loss', val_loss, e * len(train_loader) + i)  # last arg is global iterator
                 writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
@@ -137,13 +140,13 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
-    parser.add_argument('--epochs', type=int, default=40, help='Total number of epochs.')
-    parser.add_argument('--batch', type=int, default=1000, help='Batch size.')
+    parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
+    parser.add_argument('--batch', type=int, default=2500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=20, help='Number of repeats of augmentation process. 0 - disable augmentation')
+    parser.add_argument('--multiplier', type=int, default=40, help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP'], default='MLP', help='Type of Network')
+    parser.add_argument('--type', choices=['CNN', 'MLP'], default='CNN', help='Type of Network')
     args = parser.parse_args()
 
     new_train(args)
