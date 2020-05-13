@@ -41,15 +41,30 @@ class Loader:
                         (mat['ECG']['sex'][0, 0][0], mat['ECG']['age'][0, 0][0][0], answer['First_label'], padded))
         return res
 
+    def load_as_df_for_net(self, normalize=True):
+        net_data = self.prepare_input(flatten=False)
+        names_array = ['gender', 'age', 'label', 'ecg']
+        data = pd.DataFrame.from_records(net_data, index=list(range(0, len(net_data))), columns=names_array)
+        if normalize:
+            data.dropna(axis=0, inplace=True)
+            data.drop(data[data['age'] == -1].index, inplace=True)
+            data['age'] = data['age'].astype(int)
+            data.at[data['gender'] == 'Male', 'gender'] = 0
+            data.at[data['gender'] == 'Female', 'gender'] = 1
+        return data
+
 
 class ECGDataset(data_utils.Dataset):
-    def __init__(self, data, slice_starters=[0], slice_len=2500,
+    def __init__(self, data, slices_count=10, slice_len=2500,
                  sensors_count=12,
+                 sensor_length=5000,
+                 random_state=42,
                  sensors_transform=None,
                  non_sensors_transform=None):
-        super(ECGDataset, self).__init__()
-        self.slice_starters = slice_starters
-        self.slices_count = len(self.slice_starters)
+        super().__init__()
+        np.random.seed(random_state)
+        self.slices_count = slices_count
+        self.slice_starts = np.random.random_integers(0, sensor_length - slice_len, slices_count)
         self.sensors_transform = sensors_transform
         self.non_sensors_transform = non_sensors_transform
         self.slice_len = slice_len
@@ -61,74 +76,25 @@ class ECGDataset(data_utils.Dataset):
         return len(self.data) * self.slices_count
 
     def __getitem__(self, idx):
-        if not isinstance(idx, list):
-            current_slice_idx = int(np.floor(idx / self.data_len))
-            offset = current_slice_idx * self.data_len
-            slice_starter = self.slice_starters[current_slice_idx]
-            slice_ender = slice_starter + self.slice_len
-            current_idx = idx - offset
-            label = (self.data['label'].to_numpy())[current_idx]
-            non_ecg_tensor = np.stack(self.data[['age', 'gender']].to_numpy())[current_idx]
-            ecg_tensor = np.stack(self.data['ecg'])[current_idx, :, slice_starter : slice_ender]
-            if self.sensors_transform:
-                # TODO transform
-                pass
-            if self.non_sensors_transform:
-                pass
-            return non_ecg_tensor, ecg_tensor, label
-        else:
-            # no support for shuffling and unordered indexes
-            print(idx)
-            first_idx = idx[0]
-            last_idx = idx[-1]
-            batch_len = len(idx)
-            first_slice_idx = int(np.floor(first_idx / self.data_len))
-            last_slice_idx = int(np.floor(last_idx / self.data_len))
-    #         print(first_slice_idx, last_slice_idx)
-            non_ecg_tensors = np.zeros((batch_len, 2))
-            ecg_tensors = np.zeros((batch_len, *self.ecg_shape))
-            labels = np.zeros((batch_len,))
-            last_used_idx = 0
-            if first_slice_idx == last_slice_idx:
-                offset = self.data_len * first_slice_idx
-                start_idx = first_idx - offset
-                end_idx = last_idx - offset + 1
-                slice_starter = self.slice_starters[first_slice_idx]
-                slice_ender = slice_starter + self.slice_len
-                print(start_idx, end_idx)
-                labels[:] = (self.data['label'].to_numpy())[start_idx : end_idx]
-                non_ecg_tensors[:] = np.stack(self.data[['age', 'gender']].to_numpy())[start_idx : end_idx]
-                ecg_tensors[:] = np.stack(self.data['ecg'])[start_idx : end_idx, :, slice_starter : slice_ender]
-            else:
-                for i, slice_idx in enumerate(range(first_slice_idx, last_slice_idx + 1)):
-                    print(slice_idx)
-                    offset = len(self.data) * slice_idx
-                    slice_starter = self.slice_starters[slice_idx]
-                    slice_ender = slice_starter + self.slice_len
-                    if slice_idx == first_slice_idx:
-                        start_idx = first_idx - offset
-                        labels_batch = np.stack(self.data['label'].to_numpy())[start_idx:]
-                        non_ecg_batch = np.stack(self.data[['age', 'gender']].to_numpy())[start_idx:]
-                        ecg_batch = np.stack(self.data['ecg'])[start_idx:, :, slice_starter : slice_ender]
-                    elif slice_idx == last_slice_idx:
-                        end_idx = last_idx - offset + 1
-                        labels_batch = np.stack(self.data['label'].to_numpy())[:end_idx]
-                        non_ecg_batch = np.stack(self.data[['age', 'gender']].to_numpy())[:end_idx]
-                        ecg_batch = np.stack(self.data['ecg'])[:end_idx, :, slice_starter : slice_ender]
-                    else:
-                        labels_batch = np.stack(self.data['label'].to_numpy())[:]
-                        non_ecg_batch = np.stack(self.data[['age', 'gender']].to_numpy())[:]
-                        ecg_batch = np.stack(self.data['ecg'])[:, :, slice_starter : slice_ender]
-                    ecg_tensors[last_used_idx : last_used_idx + ecg_batch.shape[0]] = ecg_batch
-                    non_ecg_tensors[last_used_idx: last_used_idx + ecg_batch.shape[0]] = non_ecg_batch
-                    labels[last_used_idx: last_used_idx + ecg_batch.shape[0]] = labels_batch
-                    last_used_idx += ecg_batch.shape[0]
-            if self.sensors_transform:
-                # TODO transform
-                pass
-            if self.non_sensors_transform:
-                pass
-            return non_ecg_tensors, ecg_tensors, labels
+        current_slice_idx = int(np.floor(idx / self.data_len))
+        offset = current_slice_idx * self.data_len
+        slice_start = self.slice_starts[current_slice_idx]
+        slice_end = slice_start + self.slice_len
+        current_idx = idx - offset
+        label = self.data.iloc[current_idx]['label']
+        non_ecg_tensor = self.data.iloc[current_idx][['age', 'gender']].to_numpy()
+        ecg_tensor = self.data.iloc[current_idx]['ecg'][:, slice_start:slice_end]
+        if self.sensors_transform:
+            # TODO transform
+            pass
+        if self.non_sensors_transform:
+            pass
+        print(label, non_ecg_tensor, ecg_tensor)
+        return {
+            'non_ecg': non_ecg_tensor,
+            'ecg': ecg_tensor,
+            'y': label
+        }
 
 
 def get_prepared_dataset(file_path, names, target_column, columns_to_delete, *,

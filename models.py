@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -27,23 +28,29 @@ class MLP(nn.Module):
 
 
 class CNN(nn.Module):
-    def __init__(self, num_classes, count_of_features):
+    def __init__(self, num_classes, count_of_features=None):
         super(CNN, self).__init__()
         self.num_classes = num_classes
 
-        self.conv1 = nn.Conv1d(1, 4, kernel_size=3)
-        # TODO add pooling
-        # self.conv2 = nn.Conv1d(64, 128, kernel_size=3)
-        # self.conv3 = nn.Conv1d(128, 256, kernel_size=3)
-        self.fc1 = nn.Linear((count_of_features - 2) * 4, 784)
+        self.conv1 = nn.Conv1d(12, 24, kernel_size=3)
+        self.conv2 = nn.Conv1d(24, 48, kernel_size=3)
+        self.conv3 = nn.Conv1d(48, 96, kernel_size=3)
+        self.pooling = nn.AvgPool1d(kernel_size=3, stride=3)
+        self.fc1 = nn.Linear(256 * 1000, 784)
         self.fc2 = nn.Linear(784, 256)
         self.fc3 = nn.Linear(256, num_classes)
 
-    def forward(self, x):
+    def forward(self, non_ecg, ecg):
+        x = ecg
         x = F.relu(self.conv1(x))
-        # x = F.relu(self.conv2(x))
-        # x = F.relu(self.conv3(x))
+        x = self.pooling(x)
+        x = F.relu(self.conv2(x))
+        x = self.pooling(x)
+        x = F.relu(self.conv3(x))
+        x = self.pooling(x)
         x = x.view(x.size(0), -1)
+        x = torch.cat((non_ecg, x), 0)
+        print(x.size())
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
