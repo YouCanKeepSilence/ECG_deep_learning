@@ -8,19 +8,22 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
 
         self.num_classes = num_classes
+        self.input_bn = nn.BatchNorm1d(count_of_features)
         self.fc0 = nn.Linear(count_of_features, 784)  # полносвязный слой
         self.fc1 = nn.Linear(784, 512)  # полносвязный слой
         self.fc2 = nn.Linear(512, 256)  # полносвязный слой
         self.fc3 = nn.Linear(256, num_classes)  # полносвязный слой
         self.dropout = nn.Dropout(0.5)
 
-    def forward(self, x):
+    def forward(self, non_ecg, ecg):
+        x = ecg
         x = x.view(x.size(0), -1)
+        x = torch.cat((non_ecg, x), dim=1)
+        x = self.input_bn(x)
         x = F.relu(self.fc0(x))
         x = self.dropout(x)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        # x = self.fc2(x)
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         # in reason of CrossEntropy here should be softmax activate function instead of ReLU

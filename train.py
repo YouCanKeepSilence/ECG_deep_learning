@@ -13,8 +13,8 @@ import dataset
 import sklearn.model_selection
 
 file_path = '/Users/silence/Workbench/ml/ml_labs/LegacyData/half.csv'
-data_path = '/Users/silence/Workbench/ml/ml_labs/LegacyData/TrainingSet1'
-reference_path = '/Users/silence/Workbench/ml/ml_labs/LegacyData/TrainingSet1/REFERENCE.csv'
+data_path = './TrainingSet1'
+reference_path = './TrainingSet1/REFERENCE.csv'
 columns_count = 60000
 target_column = 'first_label'
 useless_columns = ['second_label', 'third_label']
@@ -61,7 +61,10 @@ def new_train(args):
     test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4)
     use_cuda = torch.cuda.is_available()
     print(f'Use cuda {use_cuda}')
-    net = models.CNN(args.num_classes)
+    if args.type == 'CNN':
+        net = models.CNN(args.num_classes, 12)
+    else:
+        net = models.MLP(args.num_classes, 12 * args.slice + 2)
     if use_cuda:
         net = net.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -146,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument('--multiplier', type=int, default=40, help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP'], default='CNN', help='Type of Network')
+    parser.add_argument('--type', choices=['CNN', 'MLP'], default='MLP', help='Type of Network')
     args = parser.parse_args()
 
     new_train(args)
