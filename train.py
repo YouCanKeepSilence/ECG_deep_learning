@@ -3,55 +3,26 @@ import datetime
 
 import torch
 import torch.autograd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
+from xgboost import XGBClassifier
+from joblib import dump, load
 
 import models
-from dataset import get_prepared_dataset, split
 import dataset
+import test
 import sklearn.model_selection
 
-file_path = '/Users/silence/Workbench/ml/ml_labs/LegacyData/half.csv'
-data_path = './TrainingSet1'
-reference_path = './TrainingSet1/REFERENCE.csv'
-columns_count = 60000
-target_column = 'first_label'
-useless_columns = ['second_label', 'third_label']
-names_array = ['gender', 'age', 'first_label', 'second_label', 'third_label',
-               *['c_{}'.format(i + 1) for i in range(columns_count)]]
 
-
-def evaluate(model, test_loader, criterion):
-    # production mode to NN (batch_norm to statistics (mean, divergence), dropout off)
-    model.eval()
-    use_cuda = torch.cuda.is_available()
-    # disable gradient
-    with torch.no_grad():
-        avg_loss = 0.0
-        val_acc = 0
-        for non_ecg, ecg, y in test_loader:
-            # forward
-            if use_cuda:
-                non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
-            out = model(non_ecg, ecg)
-            # calcilate loss
-            loss = criterion(out, y)
-            # 1 means axis 1
-            _, pred = torch.max(out.data, 1)
-            val_acc += pred.eq(y).sum().item() / y.size(0)
-            avg_loss += loss.item()
-        avg_loss /= len(test_loader)
-        val_acc /= len(test_loader)
-    model.train()
-    return avg_loss, val_acc
-
-
-def new_train(args):
+def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
     print(f'{datetime.datetime.now()} start loading df')
-    df = dataset.Loader(data_path, reference_path).load_as_df_for_net(normalize=True)
+    reference_path = f'{args.base_path}/REFERENCE.csv'
+    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
     print(f'{datetime.datetime.now()} start split df')
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.2)
     print(f'{datetime.datetime.now()} start create torch df')
@@ -76,21 +47,16 @@ def new_train(args):
         for i, (non_ecg, ecg, y) in enumerate(train_loader):
             if use_cuda:
                 non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
-            # flush gradient
             optimizer.zero_grad()
-            # forward
             out = net(non_ecg, ecg)
-            # calculate loss
             loss = criterion(out, y)
             _, pred = torch.max(out.data, 1)
             acc = pred.eq(y).sum().item() / y.size(0)  # (pred == y).numpy().mean()
-            # backward
             loss.backward()
             optimizer.step()
             if i % args.print_every == 0:
-                val_loss, val_acc = evaluate(net, test_loader, criterion)
+                val_loss, val_acc = test.evaluate(net, test_loader, criterion)
                 print(f'Epoch: {e}, Iteration: {i} \n'
-                      # f'X: {x.size()}. Y: {y.size()} \n'
                       f'Loss: {loss.item()} , Acc: {acc} \n'
                       f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
                       f'-----------------------------------------\n'
@@ -101,48 +67,9 @@ def new_train(args):
                 writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
 
 
-def train(args):
-    writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}')
-    X, y = get_prepared_dataset(file_path, names_array, target_column, useless_columns,
-                                augmentation_multiplier=args.multiplier,
-                                augmentation_slice_size=args.slice)
-
-    train_loader, test_loader = split(X, y, test_size=0.2, batch_size=args.batch, random_state=13)
-    net = getattr(models, args.type)(args.num_classes, X.shape[1])
-
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), args.lr)
-
-    for e in range(args.epochs):
-        net.train()
-        for i, (x, y) in enumerate(train_loader):
-            # flush gradient
-            optimizer.zero_grad()
-            # forward
-            out = net(x)
-            # calculate loss
-            loss = criterion(out, y)
-            _, pred = torch.max(out.data, 1)
-            acc = pred.eq(y).sum().item() / y.size(0)  # (pred == y).numpy().mean()
-            # backward
-            loss.backward()
-            optimizer.step()
-            if i % args.print_every == 0:
-                val_loss, val_acc = evaluate(net, test_loader, criterion)
-                print(f'Epoch: {e}, Iteration: {i} \n'
-                      f'X: {x.size()}. Y: {y.size()} \n'
-                      f'Loss: {loss.item()} , Acc: {acc} \n'
-                      f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
-                      f'-----------------------------------------\n'
-                      )
-                writer.add_scalar('Train/Acc', acc, e * len(train_loader))
-                writer.add_scalar('Train/Loss', loss.item(), e * len(train_loader) + i)
-                writer.add_scalar('Val/Loss', val_loss, e * len(train_loader) + i)  # last arg is global iterator
-                writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
-
-
-def draw():
-    df = dataset.Loader(data_path, reference_path).load_as_df_for_net(normalize=True)
+def draw(args):
+    reference_path = f'{args.base_path}/REFERENCE.csv'
+    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
     test = df.iloc[0]['ecg']
     labels = list(range(test.shape[1]))
     for i in range(test.shape[0]):
@@ -152,17 +79,51 @@ def draw():
     plt.show()
 
 
-if __name__ == '__main__':
+def train_ml(args):
+    multiplier, slice_size = args.multiplier, args.slice
+    reference_path = f'{args.base_path}/REFERENCE.csv'
+    x, y = (dataset.Loader(args.base_path, reference_path)
+            .load_as_x_y_for_ml(normalize=True,
+                                augmentation_multiplier=multiplier,
+                                augmentation_slice_size=slice_size))
+    x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.2)
+    for name in ['RF', 'SVM', 'XGBoost']:
+        args.type = name
+        if args.type == 'RF':
+            classifier = RandomForestClassifier(random_state=42, n_jobs=-1)
+        elif args.type == 'SVM':
+            classifier = SVC(random_state=42)
+        elif args.type == 'XGBoost':
+            classifier = XGBClassifier()
+        else:
+            raise Exception(f'Unknown classifier name {args.type}')
+        print(f'{datetime.datetime.now()} {args.type} Train started')
+        classifier.fit(x_train, y_train)
+        print(f'{datetime.datetime.now()} {args.type} Train finished')
+        train_accuracy, test_accuracy = test.eval_ml(x_train, x_test, y_train, y_test, classifier)
+        print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+        dump(classifier, f'{type(classifier).__name__}.joblib')
+
+
+def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=2500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=40, help='Number of repeats of augmentation process. 0 - disable augmentation')
+    parser.add_argument('--multiplier', type=int, default=0,
+                        help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP'], default='MLP', help='Type of Network')
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='MLP',
+                        help='Type of Classifier or Network')
+    parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
 
     # draw()
-    new_train(args)
+    # train(args)
+    train_ml(args)
+
+
+if __name__ == '__main__':
+    main()
