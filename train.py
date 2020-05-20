@@ -76,10 +76,10 @@ def train(args):
 def draw(args):
     reference_path = f'{args.base_path}/REFERENCE.csv'
     df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
-    test = df.iloc[0]['ecg']
-    labels = list(range(test.shape[1]))
-    for i in range(test.shape[0]):
-        plt.plot(labels, test[i], label=f'sensor_{i}')
+    sample = df.iloc[0]['ecg']
+    labels = list(range(sample.shape[1]))
+    for i in range(sample.shape[0]):
+        plt.plot(labels, sample[i], label=f'sensor_{i}')
     plt.grid()
     plt.legend()
     plt.show()
