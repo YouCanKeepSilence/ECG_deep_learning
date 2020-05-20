@@ -1,6 +1,7 @@
 import argparse
 import datetime
-
+import os
+import utils
 import torch
 import torch.autograd
 from sklearn.ensemble import RandomForestClassifier
@@ -10,7 +11,6 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
-from joblib import dump, load
 
 import models
 import dataset
@@ -20,19 +20,17 @@ import sklearn.model_selection
 
 def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
-    print(f'{datetime.datetime.now()} start loading df')
+    checkpoint_prefix = f'{args.type}_{datetime.datetime.now()}'
+    print(f'{datetime.datetime.now()} Loading data')
     reference_path = f'{args.base_path}/REFERENCE.csv'
     df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
-    print(f'{datetime.datetime.now()} start split df')
-    train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.2)
-    print(f'{datetime.datetime.now()} start create torch df')
+    train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.3)
+    print(f'{datetime.datetime.now()} Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
-    print(f'{datetime.datetime.now()} start create torch loader')
-    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=4)
-    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4)
+    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=4, shuffle=True)
+    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4, shuffle=True)
     use_cuda = torch.cuda.is_available()
-    print(f'Use cuda {use_cuda}')
     if args.type == 'CNN':
         net = models.CNN(args.num_classes, 12)
     else:
@@ -41,9 +39,11 @@ def train(args):
         net = net.cuda()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
-    print(f'{datetime.datetime.now()} start training')
+    print(f'{datetime.datetime.now()} Train started')
     for e in range(args.epochs):
         net.train()
+        # need here to append label to checkpoint name
+        step_label = 0
         for i, (non_ecg, ecg, y) in enumerate(train_loader):
             if use_cuda:
                 non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
@@ -56,15 +56,21 @@ def train(args):
             optimizer.step()
             if i % args.print_every == 0:
                 val_loss, val_acc = test.evaluate(net, test_loader, criterion)
-                print(f'Epoch: {e}, Iteration: {i} \n'
+                print(f'{datetime.datetime.now()}\n '
+                      f'Epoch: {e}, Iteration: {i} \n'
                       f'Loss: {loss.item()} , Acc: {acc} \n'
                       f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
-                      f'-----------------------------------------\n'
                       )
-                writer.add_scalar('Train/Acc', acc, e * len(train_loader) + i)
-                writer.add_scalar('Train/Loss', loss.item(), e * len(train_loader) + i)
-                writer.add_scalar('Val/Loss', val_loss, e * len(train_loader) + i)  # last arg is global iterator
-                writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
+                step_label = e * len(train_loader) + i
+                writer.add_scalar('Train/Acc', acc, step_label)
+                writer.add_scalar('Train/Loss', loss.item(), step_label)
+                writer.add_scalar('Val/Loss', val_loss, step_label)
+                writer.add_scalar('Val/Acc', val_acc, step_label)
+        checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{step_label}).pth')
+        utils.save_net_model(net, checkpoint_name)
+        print(f'Checkpoint of epoch {e} saved'
+              f'-----------------------------------------\n'
+              )
 
 
 def draw(args):
@@ -86,7 +92,7 @@ def train_ml(args):
             .load_as_x_y_for_ml(normalize=True,
                                 augmentation_multiplier=multiplier,
                                 augmentation_slice_size=slice_size))
-    x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.2)
+    x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
     for name in ['RF', 'SVM', 'XGBoost']:
         args.type = name
         if args.type == 'RF':
@@ -102,27 +108,30 @@ def train_ml(args):
         print(f'{datetime.datetime.now()} {args.type} Train finished')
         train_accuracy, test_accuracy = test.eval_ml(x_train, x_test, y_train, y_test, classifier)
         print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
-        dump(classifier, f'{type(classifier).__name__}.joblib')
+        save_name = os.path.join(f'{datetime.datetime.now()}_{type(classifier).__name__}', 'model.joblib')
+        utils.save_ml(classifier, save_name)
 
 
 def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
-    parser.add_argument('--batch', type=int, default=2500, help='Batch size.')
+    parser.add_argument('--batch', type=int, default=2000, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=0,
+    parser.add_argument('--multiplier', type=int, default=40,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='MLP',
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='CNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
 
     # draw()
-    # train(args)
-    train_ml(args)
+    if args.type in ['CNN', 'MLP']:
+        train(args)
+    else:
+        train_ml(args)
 
 
 if __name__ == '__main__':

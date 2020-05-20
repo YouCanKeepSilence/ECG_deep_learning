@@ -37,32 +37,30 @@ class CNN(nn.Module):
             self.pooling = nn.AvgPool1d(kernel_size=3, stride=3)
         else:
             self.pooling = nn.MaxPool1d(kernel_size=3, stride=3)
+
+        self.dropout05 = nn.Dropout(0.5)
+        self.dropout025 = nn.Dropout(0.25)
         self.num_classes = num_classes
         self.conv_1_layer = nn.Sequential(
             nn.Conv1d(12, 24, kernel_size=3),
             nn.BatchNorm1d(24),
-            nn.ReLU,
+            nn.ReLU(),
             self.pooling
         )
         self.conv_2_layer = nn.Sequential(
             nn.Conv1d(24, 48, kernel_size=3),
             nn.BatchNorm1d(48),
-            nn.ReLU,
+            nn.ReLU(),
             self.pooling
         )
-        self.conv_2_layer = nn.Sequential(
+        self.conv_3_layer = nn.Sequential(
             nn.Conv1d(48, 96, kernel_size=3),
             nn.BatchNorm1d(96),
-            nn.ReLU,
+            nn.ReLU(),
             self.pooling
         )
         self.input_bn = nn.BatchNorm1d(number_of_channels)
-        self.conv1 = nn.Conv1d(12, 24, kernel_size=3)
-        self.conv_1_bn = nn.BatchNorm1d(24)
-        self.conv2 = nn.Conv1d(24, 48, kernel_size=3)
-        self.conv_2_bn = nn.BatchNorm1d(48)
-        self.conv3 = nn.Conv1d(48, 96, kernel_size=3)
-        self.dropout = nn.Dropout(0.5)
+
         self.fc_input_bn = nn.BatchNorm1d(8736 + 2)
         self.fc1 = nn.Linear(8736 + 2, 2048)
         self.fc1_bn = nn.BatchNorm1d(2048)
@@ -77,17 +75,20 @@ class CNN(nn.Module):
         x = self.input_bn(x)
         x = self.conv_1_layer(x)
         x = self.conv_2_layer(x)
+        x = self.dropout025(x)
         x = self.conv_3_layer(x)
         x = x.view(x.size(0), -1)
         x = torch.cat((non_ecg, x), dim=1)
         x = self.fc_input_bn(x)
-        x = self.dropout(x)
+        x = self.dropout05(x)
         x = F.relu(self.fc1(x))
         x = self.fc1_bn(x)
         x = F.relu(self.fc2(x))
-        x = self.dropout(x)
+        x = self.dropout05(x)
         x = self.fc2_bn(x)
+        x = self.dropout025(x)
         x = F.relu(self.fc3(x))
         x = self.fc3_bn(x)
         x = self.fc4(x)
+        # we don't need activation here in reason of CrossEntropyLoss usage. It includes LogSoftmax inside
         return x
