@@ -1,6 +1,9 @@
 import os
 import torch
 from joblib import dump, load
+
+import models
+
 MODEL_SAVE_FOLDER = './models'
 
 
@@ -31,3 +34,15 @@ def save_ml(model, name):
 
 def load_ml(name):
     return load(name)
+
+
+def create_model_by_name(name, weights_path):
+    if name == 'CNN':
+        return load_net_model(models.CNN(), weights_path)
+    elif name == 'MLP':
+        return load_net_model(models.MLP(), weights_path)
+    elif name in ['RF', 'SVM', 'XGBoost']:
+        return load_ml(weights_path)
+    else:
+        raise Exception(f'Unknown model type {name}')
+

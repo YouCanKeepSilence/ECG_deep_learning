@@ -1,5 +1,9 @@
+import argparse
+
 import torch
 from sklearn.metrics import accuracy_score
+
+import utils
 
 
 def evaluate(model, test_loader, criterion):
@@ -30,4 +34,17 @@ def eval_ml(x_train, x_test, y_train, y_test, classifier):
     return train_accuracy, test_accuracy
 
 
-# TODO add model loading and evaluating via __main__
+def main():
+    parser = argparse.ArgumentParser(description='Evaluation script of ECG problem.')
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='CNN',
+                        help='Type of Classifier or Network')
+    parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to data directory')
+    parser.add_argument('--model_path', type=str, default='./models/CNN.pth', help='Path to model weights file')
+    args = parser.parse_args()
+    model = utils.create_model_by_name(args.type, args.model_path)
+    # TODO load data
+    # TODO evaluate model
+
+
+if __name__ == '__main__':
+    main()

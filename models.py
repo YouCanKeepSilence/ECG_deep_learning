@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class MLP(nn.Module):
-    def __init__(self, num_classes, count_of_features):
+    def __init__(self, num_classes=9, count_of_features=12 * 2500 + 2):
         super(MLP, self).__init__()
 
         self.num_classes = num_classes
@@ -31,7 +31,7 @@ class MLP(nn.Module):
 
 
 class CNN(nn.Module):
-    def __init__(self, num_classes, number_of_channels=12, pooling='avg'):
+    def __init__(self, num_classes=9, number_of_channels=12, pooling='avg'):
         super(CNN, self).__init__()
         if pooling == 'avg':
             self.pooling = nn.AvgPool1d(kernel_size=3, stride=3)
