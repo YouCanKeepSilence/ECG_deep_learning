@@ -6,6 +6,7 @@ import torch.autograd
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+import matplotlib.pyplot as plt
 
 import models
 from dataset import get_prepared_dataset, split
@@ -140,6 +141,17 @@ def train(args):
                 writer.add_scalar('Val/Acc', val_acc, e * len(train_loader) + i)
 
 
+def draw():
+    df = dataset.Loader(data_path, reference_path).load_as_df_for_net(normalize=True)
+    test = df.iloc[0]['ecg']
+    labels = list(range(test.shape[1]))
+    for i in range(test.shape[0]):
+        plt.plot(labels, test[i], label=f'sensor_{i}')
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
@@ -152,4 +164,5 @@ if __name__ == '__main__':
     parser.add_argument('--type', choices=['CNN', 'MLP'], default='MLP', help='Type of Network')
     args = parser.parse_args()
 
+    # draw()
     new_train(args)
