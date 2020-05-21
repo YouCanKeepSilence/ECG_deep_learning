@@ -38,9 +38,11 @@ class CNN(nn.Module):
         else:
             self.pooling = nn.MaxPool1d(kernel_size=3, stride=3)
 
+        self.num_classes = num_classes
         self.dropout05 = nn.Dropout(0.5)
         self.dropout025 = nn.Dropout(0.25)
-        self.num_classes = num_classes
+        self.input_bn = nn.BatchNorm1d(number_of_channels)
+        self.fc_input_bn = nn.BatchNorm1d(8736 + 2)
         self.conv_1_layer = nn.Sequential(
             nn.Conv1d(12, 24, kernel_size=3),
             nn.BatchNorm1d(24),
@@ -59,15 +61,21 @@ class CNN(nn.Module):
             nn.ReLU(),
             self.pooling
         )
-        self.input_bn = nn.BatchNorm1d(number_of_channels)
-
-        self.fc_input_bn = nn.BatchNorm1d(8736 + 2)
-        self.fc1 = nn.Linear(8736 + 2, 2048)
-        self.fc1_bn = nn.BatchNorm1d(2048)
-        self.fc2 = nn.Linear(2048, 1024)
-        self.fc2_bn = nn.BatchNorm1d(1024)
-        self.fc3 = nn.Linear(1024, 256)
-        self.fc3_bn = nn.BatchNorm1d(256)
+        self.fc_1_layer = nn.Sequential(
+            nn.Linear(8736 + 2, 2048),
+            nn.BatchNorm1d(2048),
+            nn.ReLU(),
+        )
+        self.fc_2_layer = nn.Sequential(
+            nn.Linear(2048, 1024),
+            nn.BatchNorm1d(1024),
+            nn.ReLU(),
+        )
+        self.fc_3_layer = nn.Sequential(
+            nn.Linear(1024, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU()
+        )
         self.fc4 = nn.Linear(256, num_classes)
 
     def forward(self, non_ecg, ecg):
@@ -80,15 +88,11 @@ class CNN(nn.Module):
         x = x.view(x.size(0), -1)
         x = torch.cat((non_ecg, x), dim=1)
         x = self.fc_input_bn(x)
+        x = self.fc_1_layer(x)
         x = self.dropout05(x)
-        x = F.relu(self.fc1(x))
-        x = self.fc1_bn(x)
-        x = F.relu(self.fc2(x))
-        x = self.dropout05(x)
-        x = self.fc2_bn(x)
+        x = self.fc_2_layer(x)
         x = self.dropout025(x)
-        x = F.relu(self.fc3(x))
-        x = self.fc3_bn(x)
+        x = self.fc_3_layer(x)
         x = self.fc4(x)
         # we don't need activation here in reason of CrossEntropyLoss usage. It includes LogSoftmax inside
         return x
