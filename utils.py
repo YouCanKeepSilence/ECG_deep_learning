@@ -33,7 +33,8 @@ def save_ml(model, name):
 
 
 def load_ml(name):
-    return load(name)
+    load_path = os.path.join(MODEL_SAVE_FOLDER, name)
+    return load(load_path)
 
 
 def create_model_by_name(name, weights_path):

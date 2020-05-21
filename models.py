@@ -88,6 +88,7 @@ class CNN(nn.Module):
         x = x.view(x.size(0), -1)
         x = torch.cat((non_ecg, x), dim=1)
         x = self.fc_input_bn(x)
+        x = self.dropout025(x)
         x = self.fc_1_layer(x)
         x = self.dropout05(x)
         x = self.fc_2_layer(x)

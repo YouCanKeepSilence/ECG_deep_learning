@@ -100,13 +100,14 @@ def train_ml(args):
         elif args.type == 'SVM':
             classifier = SVC(random_state=42)
         elif args.type == 'XGBoost':
-            classifier = XGBClassifier()
+            classifier = XGBClassifier(objective='multi:softmax', tree_method='gpu_hist', num_class=9, random_state=42)
         else:
             raise Exception(f'Unknown classifier name {args.type}')
         print(f'{datetime.datetime.now()} {args.type} Train started')
         classifier.fit(x_train, y_train)
         print(f'{datetime.datetime.now()} {args.type} Train finished')
-        train_accuracy, test_accuracy = test.eval_ml(x_train, x_test, y_train, y_test, classifier)
+        train_accuracy = test.eval_ml(x_train, y_train, classifier)
+        test_accuracy = test.eval_ml(x_test, y_test, classifier)
         print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
         save_name = os.path.join(f'{datetime.datetime.now()}_{type(classifier).__name__}', 'model.joblib')
         utils.save_ml(classifier, save_name)
@@ -118,11 +119,11 @@ def main():
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=2000, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=40,
+    parser.add_argument('--multiplier', type=int, default=0,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='CNN',
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='XGBoost',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()

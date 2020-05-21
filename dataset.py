@@ -55,7 +55,7 @@ class Loader:
             data['gender'] = data['gender'].astype(np.float32)
         return data
 
-    def load_as_x_y_for_ml(self, normalize=True, *, augmentation_multiplier=0, augmentation_slice_size=2500):
+    def load_as_x_y_for_ml(self, normalize=True, *, augmentation_multiplier=0, augmentation_slice_size=2500, check_to_na=False):
         data = self._prepare_input(flatten=True)
         names_array = ['gender', 'age', 'label', *[f'c_{i}' for i in range(self.padded_len)]]
         data = pd.DataFrame.from_records(data, index=list(range(0, len(data))), columns=names_array)
@@ -64,10 +64,10 @@ class Loader:
             data.drop(data[data['age'] == -1].index, inplace=True)
             data['age'] = data['age'].astype(np.float32)
             data = self._normalize_data(data, 'label')
-
-        check_na_series = data.isnull().sum()
-        if len(check_na_series[check_na_series > 0].index) != 0:
-            raise Exception('There are some NA values in Dataset')
+        if check_to_na:
+            check_na_series = data.isnull().sum()
+            if len(check_na_series[check_na_series > 0].index) != 0:
+                raise Exception('There are some NA values in Dataset')
 
         if augmentation_multiplier > 0:
             data = self._augmentation(data, augmentation_multiplier, augmentation_slice_size)
@@ -147,7 +147,7 @@ class Loader:
         # Numeric columns normalization
         columns_to_normalize = df.columns.difference([*categorical_names]).to_list()
         # Optimize normalization, to fit in memory
-        normalize_batch = 2500
+        normalize_batch = 1000
         for i in range(0, len(columns_to_normalize), normalize_batch):
             sliced = columns_to_normalize[i:i + normalize_batch]
             df[sliced] = (df[sliced] - df[sliced].mean(axis=0)) / df[sliced].std(axis=0)

@@ -41,13 +41,20 @@ To test you can download needed model file from [here]()
 `python test.py --base_path=${YOUR_DATA_FOLDER_PATH} --type=${NEEDED_MODEL_TYPE} --model_path=${PATH_TO_MODEL_FILE}`
 
 ## Model scores
+Networks were tested with 2500 slice size and 40 augmentation multiplier. 
+Test size was 30% of augmentated dataset.
+
+To measure full dataset accuracy were generated 1 slice with 2500 length with another random_state
+
+
+SVM, RF, XGBoost were tested without augmentation
 
 | Model  | Test accuracy  |  Train accuracy  | Full dataset accuracy  |
-|---|---|---|---|
-|CNN   |   |   |   |
-|MLP   |   |   |   |
-|SVM   |   |   |   |
-|Random Forest   |   |   |   |
-|XGBoost   |   |   |   |
+|:---:|:---:|:---:|:---:|
+|CNN   |  67% | 96%  | 85%  |
+|MLP   | 54%  | 76%  | 66%  |
+|SVM   | 49%   | 73%  |   |
+|Random Forest | 51%  | 98% |   |
+|XGBoost   | 57%  | 98%  | 86%  |
 
 
