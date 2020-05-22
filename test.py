@@ -2,6 +2,7 @@ import argparse
 import os
 
 import torch
+import torchvision
 from sklearn.metrics import accuracy_score
 from torch.utils.data import DataLoader
 
@@ -40,6 +41,7 @@ def main():
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to data directory')
     parser.add_argument('--model_file', type=str, default='2020-05-21 20:10:23.962904_XGBClassifier/model.joblib', help='Name of model weights file')
+    parser.add_argument('--save_onnx', type=bool, default=False, help='Use to save model as .onnx')
     args = parser.parse_args()
     model = utils.create_model_by_name(args.type, args.model_file)
     reference_path = os.path.join(args.base_path, 'REFERENCE.csv')
@@ -53,6 +55,15 @@ def main():
         loader = DataLoader(df, batch_size=1, num_workers=4)
         criterion = torch.nn.CrossEntropyLoss()
         val_loss, val_acc = evaluate(model, loader, criterion)
+        if args.save_onnx:
+            dummy_input_ecg = torch.randn(10, 12, 2500)
+            dummy_input_non_ecg = torch.randn(10, 2)
+            if torch.cuda.is_available():
+                dummy_input_non_ecg, dummy_input_ecg = dummy_input_non_ecg.cuda(), dummy_input_ecg.cuda()
+            torch.onnx.export(model, (dummy_input_non_ecg, dummy_input_ecg),
+                              f'{args.type}.onnx', verbose=True, input_names=['non_ecg', 'ecg'],
+                              output_names=['classes']
+                              )
         print(f'{args.type} full dataset accuracy: {val_acc}')
     elif args.type in ['SVM', 'RF', 'XGBoost']:
         x, y = data_loader.load_as_x_y_for_ml(normalize=True)
