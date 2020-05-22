@@ -34,10 +34,11 @@ def train(args):
     train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=4, shuffle=True)
     test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4, shuffle=True)
     use_cuda = torch.cuda.is_available()
-    if args.type == 'CNN':
-        net = models.CNN(args.num_classes, 12)
+
+    if args.type.startswith('VGG_'):
+        net = models.get_vgg(args.type.split('_')[-1], batch_norm=True)
     else:
-        net = models.MLP(args.num_classes, 12 * args.slice + 2)
+        net = getattr(models, args.type)()
     if use_cuda:
         net = net.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -121,19 +122,22 @@ def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
-    parser.add_argument('--batch', type=int, default=2000, help='Batch size.')
+    parser.add_argument('--batch', type=int, default=500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=0,
+    parser.add_argument('--multiplier', type=int, default=40,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost', 'TPOT'], default='TPOT',
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'VGGLikeCNN',
+                                           'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
+                                           'RF', 'SVM', 'XGBoost', 'TPOT'], default='VGG_11',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
 
     # draw()
-    if args.type in ['CNN', 'MLP']:
+    if args.type in ['CNN', 'MLP', 'VGGLikeCNN',
+                     'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19']:
         train(args)
     else:
         train_ml(args)
