@@ -1,6 +1,9 @@
 import argparse
 import datetime
 import os
+
+import tpot
+
 import utils
 import torch
 import torch.autograd
@@ -93,24 +96,25 @@ def train_ml(args):
                                 augmentation_multiplier=multiplier,
                                 augmentation_slice_size=slice_size))
     x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
-    for name in ['RF', 'SVM', 'XGBoost']:
-        args.type = name
-        if args.type == 'RF':
-            classifier = RandomForestClassifier(random_state=42, n_jobs=-1)
-        elif args.type == 'SVM':
-            classifier = SVC(random_state=42)
-        elif args.type == 'XGBoost':
-            classifier = XGBClassifier(objective='multi:softmax', tree_method='gpu_hist', num_class=9, random_state=42)
-        else:
-            raise Exception(f'Unknown classifier name {args.type}')
-        print(f'{datetime.datetime.now()} {args.type} Train started')
-        classifier.fit(x_train, y_train)
-        print(f'{datetime.datetime.now()} {args.type} Train finished')
-        train_accuracy = test.eval_ml(x_train, y_train, classifier)
-        test_accuracy = test.eval_ml(x_test, y_test, classifier)
-        print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
-        save_name = os.path.join(f'{datetime.datetime.now()}_{type(classifier).__name__}', 'model.joblib')
-        utils.save_ml(classifier, save_name)
+    if args.type == 'RF':
+        classifier = RandomForestClassifier(random_state=42, n_jobs=-1)
+    elif args.type == 'SVM':
+        classifier = SVC(random_state=42)
+    elif args.type == 'XGBoost':
+        classifier = XGBClassifier(objective='multi:softmax', tree_method='gpu_hist', num_class=9, random_state=42)
+    elif args.type == 'TPOT':
+        classifier = tpot.TPOTClassifier(generations=5, population_size=50, verbosity=2, random_state=42, n_jobs=1)
+    else:
+        raise Exception(f'Unknown classifier name {args.type}')
+    print(f'{datetime.datetime.now()} {args.type} Train started')
+    classifier.fit(x_train, y_train)
+    print(f'{datetime.datetime.now()} {args.type} Train finished')
+    classifier.export('tpot_pipeline.py')
+    train_accuracy = test.eval_ml(x_train, y_train, classifier)
+    test_accuracy = test.eval_ml(x_test, y_test, classifier)
+    print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    save_name = os.path.join(f'{datetime.datetime.now()}_{type(classifier).__name__}', 'model.joblib')
+    utils.save_ml(classifier, save_name)
 
 
 def main():
@@ -123,7 +127,7 @@ def main():
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='XGBoost',
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost', 'TPOT'], default='TPOT',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
