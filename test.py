@@ -36,10 +36,10 @@ def eval_ml(x, y, classifier):
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluation script of ECG problem.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='XGBoost',
+    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='RF',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to data directory')
-    parser.add_argument('--model_file', type=str, default='2020-05-21 20:10:23.962904_XGBClassifier/model.joblib', help='Name of model weights file')
+    parser.add_argument('--model_file', type=str, default='2020-05-21 19:36:38.771975_RandomForestClassifier/model.joblib', help='Name of model weights file')
     args = parser.parse_args()
     model = utils.create_model_by_name(args.type, args.model_file)
     reference_path = os.path.join(args.base_path, 'REFERENCE.csv')
