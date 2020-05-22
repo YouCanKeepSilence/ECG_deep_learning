@@ -53,7 +53,7 @@ SVM, RF, XGBoost were tested without augmentation
 |:---:|:---:|:---:|:---:|
 |CNN   |  67% | 96%  | 85%  |
 |MLP   | 54%  | 76%  | 66%  |
-|SVM   | 49%   | 73%  |   |
+|SVM   | 49%   | 73%  | 66%  |
 |Random Forest | 51%  | 98% | 84%  |
 |XGBoost   | 57%  | 98%  | 86%  |
 
