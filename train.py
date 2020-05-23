@@ -17,8 +17,26 @@ from xgboost import XGBClassifier
 
 import models
 import dataset
-from . import test
+import test
 import sklearn.model_selection
+
+
+def _write_checkpoint(writer, e, epochs, i, iteration_per_epochs, acc, loss, val_acc, val_loss):
+    in_epoch_progress = round(i / iteration_per_epochs, 2)
+    full_progress = round((e * iteration_per_epochs + i) / (epochs * iteration_per_epochs), 2)
+    print(f'{datetime.datetime.now()}\n '
+          f'Epoch: {e}/{epochs}, Iteration: {i}/{iteration_per_epochs}, '
+          f'In epoch progress ({in_epoch_progress * 100} %)\n'
+          f'Full progress {full_progress * 100} %\n'
+          f'Loss: {loss.item()} , Acc: {acc} \n'
+          f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
+          )
+    step_label = e * iteration_per_epochs + i
+    writer.add_scalar('Train/Acc', acc, step_label)
+    writer.add_scalar('Train/Loss', loss.item(), step_label)
+    writer.add_scalar('Val/Loss', val_loss, step_label)
+    writer.add_scalar('Val/Acc', val_acc, step_label)
+    return step_label
 
 
 def train(args):
@@ -44,10 +62,11 @@ def train(args):
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
     print(f'{datetime.datetime.now()} Train started')
+    iteration_per_epochs = len(train_loader)
     for e in range(args.epochs):
         net.train()
-        # need here to append label to checkpoint name
-        step_label = 0
+        acc = 0.0
+        loss = 0.0
         for i, (non_ecg, ecg, y) in enumerate(train_loader):
             if use_cuda:
                 non_ecg, ecg, y = non_ecg.cuda(), ecg.cuda(), y.cuda()
@@ -60,17 +79,12 @@ def train(args):
             optimizer.step()
             if i % args.print_every == 0:
                 val_loss, val_acc = test.evaluate(net, test_loader, criterion)
-                print(f'{datetime.datetime.now()}\n '
-                      f'Epoch: {e}, Iteration: {i} \n'
-                      f'Loss: {loss.item()} , Acc: {acc} \n'
-                      f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
-                      )
-                step_label = e * len(train_loader) + i
-                writer.add_scalar('Train/Acc', acc, step_label)
-                writer.add_scalar('Train/Loss', loss.item(), step_label)
-                writer.add_scalar('Val/Loss', val_loss, step_label)
-                writer.add_scalar('Val/Acc', val_acc, step_label)
-        checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{step_label}).pth')
+                _write_checkpoint(writer, e, args.epochs, i + 1, iteration_per_epochs, acc, loss, val_acc, val_loss)
+
+        val_loss, val_acc = test.evaluate(net, test_loader, criterion)
+        label = _write_checkpoint(writer, e, args.epochs, iteration_per_epochs,
+                                  iteration_per_epochs, acc, loss, val_acc, val_loss)
+        checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{label}).pth')
         utils.save_net_model(net, checkpoint_name)
         print(f'Checkpoint of epoch {e} saved'
               f'-----------------------------------------\n'
@@ -113,8 +127,8 @@ def train_ml(args):
     classifier.export('tpot_pipeline.py')
     train_accuracy = test.eval_ml(x_train, y_train, classifier)
     test_accuracy = test.eval_ml(x_test, y_test, classifier)
-    print(f'{type(classifier).__name__} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
-    save_name = os.path.join(f'{datetime.datetime.now()}_{type(classifier).__name__}', 'model.joblib')
+    print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
     utils.save_ml(classifier, save_name)
 
 
@@ -122,15 +136,15 @@ def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
-    parser.add_argument('--batch', type=int, default=250, help='Batch size.')
+    parser.add_argument('--batch', type=int, default=1500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
     parser.add_argument('--multiplier', type=int, default=40,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
-    parser.add_argument('--print_every', type=int, default=1, help='Print every # iterations.')
+    parser.add_argument('--print_every', type=int, default=30, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
     parser.add_argument('--type', choices=['CNN', 'MLP', 'VGGLikeCNN',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
-                                           'RF', 'SVM', 'XGBoost', 'TPOT'], default='VGG_11',
+                                           'RF', 'SVM', 'XGBoost', 'TPOT'], default='VGGLikeCNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()

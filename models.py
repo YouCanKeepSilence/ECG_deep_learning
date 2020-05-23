@@ -146,7 +146,7 @@ class VGGLikeCNN(nn.Module):
         )
         self.fc_2_layer = nn.Sequential(
             nn.Linear(2048, 2048),
-            nn.BatchNorm1d(1024),
+            nn.BatchNorm1d(2048),
             nn.ReLU(inplace=True),
         )
         self.fc_3_layer = nn.Linear(2048, num_classes)
