@@ -17,7 +17,7 @@ from xgboost import XGBClassifier
 
 import models
 import dataset
-import test
+from . import test
 import sklearn.model_selection
 
 
@@ -122,7 +122,7 @@ def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
-    parser.add_argument('--batch', type=int, default=500, help='Batch size.')
+    parser.add_argument('--batch', type=int, default=250, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
     parser.add_argument('--multiplier', type=int, default=40,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
