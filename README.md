@@ -62,7 +62,7 @@ _a suffix mean that network uses avg pooling instead of max.
 |CNN_a   |  95% | 65%  |  88% |
 |VGGLikeCNN   | 96%  | 66%  | 87%  |
 |VGGLikeCNN_a   | 97%  | 66%  | 88%  |
-|<b>VGG_11   | 94%  | 73%  | 90% </b> |
+|<b>VGG_11</b>   | <b>94%</b>  | <b>73%</b>  | <b>90% </b> |
 |MLP   | 66%  | 56%  | 63%  |
 |SVM   | 73%   | 49%  | 66%  |
 |Random Forest | 98%  | 51% | 84%  |
