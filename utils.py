@@ -21,7 +21,10 @@ def save_net_model(model, name):
 
 def load_net_model(model, name):
     load_path = os.path.join(MODEL_SAVE_FOLDER, name)
-    model.load_state_dict(torch.load(load_path))
+    if torch.cuda.is_available():
+        model.load_state_dict(torch.load(load_path))
+    else:
+        model.load_state_dict(torch.load(load_path, map_location=torch.device('cpu')))
     model.eval()
     return model
 
