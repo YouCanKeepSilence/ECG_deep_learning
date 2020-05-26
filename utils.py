@@ -38,10 +38,20 @@ def load_ml(name):
 
 
 def create_model_by_name(name, weights_path):
-    if name == 'CNN':
-        return load_net_model(models.CNN(), weights_path)
-    elif name == 'MLP':
-        return load_net_model(models.MLP(), weights_path)
+    if name.startswith('VGG_'):
+        net = models.get_vgg(name.split('_')[-1], batch_norm=True)
+        return load_net_model(net, weights_path)
+    elif name.startswith('VGGLikeCNN'):
+        pooling = 'max' if len(name.split('_')) == 1 else 'avg'
+        net = models.VGGLikeCNN(pooling=pooling)
+        return load_net_model(net, weights_path)
+    elif name.startswith('CNN'):
+        pooling = 'max' if len(name.split('_')) == 1 else 'avg'
+        net = models.CNN(pooling=pooling)
+        return load_net_model(net, weights_path)
+    elif name in ['MLP']:
+        net = getattr(models, name)()
+        return load_net_model(net, weights_path)
     elif name in ['RF', 'SVM', 'XGBoost']:
         return load_ml(weights_path)
     else:

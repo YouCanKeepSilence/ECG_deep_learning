@@ -17,7 +17,7 @@ from xgboost import XGBClassifier
 
 import models
 import dataset
-import test
+
 import sklearn.model_selection
 
 
@@ -49,14 +49,20 @@ def train(args):
     print(f'{datetime.datetime.now()} Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
-    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=4, shuffle=True)
-    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=4, shuffle=True)
+    train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=args.num_workers, shuffle=True)
+    test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=args.num_workers, shuffle=True)
     use_cuda = torch.cuda.is_available()
 
     if args.type.startswith('VGG_'):
-        net = models.get_vgg(args.type.split('_')[-1], batch_norm=True)
+        net = models.get_vgg(args.type.split('_')[-1], batch_norm=True, num_classes=args.num_classes)
+    elif args.type.startswith('VGGLikeCNN'):
+        pooling = 'max' if len(args.type.split('_')) == 1 else 'avg'
+        net = models.VGGLikeCNN(num_classes=args.num_classes, pooling=pooling)
+    elif args.type.startswith('CNN'):
+        pooling = 'max' if len(args.type.split('_')) == 1 else 'avg'
+        net = models.CNN(num_classes=args.num_classes, pooling=pooling)
     else:
-        net = getattr(models, args.type)()
+        net = getattr(models, args.type)(num_classes=args.num_classes)
     if use_cuda:
         net = net.cuda()
     criterion = nn.CrossEntropyLoss()
@@ -142,20 +148,28 @@ def main():
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=30, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'VGGLikeCNN',
+    parser.add_argument('--num_workers', type=int, default=4, help='Num workers to loader.')
+    parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
-                                           'RF', 'SVM', 'XGBoost', 'TPOT'], default='VGGLikeCNN',
+                                           'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
+                                           'RF', 'SVM', 'XGBoost'], default='CNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
 
-    # draw()
-    if args.type in ['CNN', 'MLP', 'VGGLikeCNN',
-                     'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19']:
+    if args.type in ['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
+                     'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
+                     'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a']:
         train(args)
-    else:
+    elif args.type in ['RF', 'SVM', 'XGBoost', 'TPOT']:
         train_ml(args)
+    else:
+        raise Exception(f'Unknown model type {args.type}')
 
 
+# Fix to use in colab
 if __name__ == '__main__':
+    import test
     main()
+else:
+    from . import test
