@@ -130,12 +130,14 @@ def train_ml(args):
     print(f'{datetime.datetime.now()} {args.type} Train started')
     classifier.fit(x_train, y_train)
     print(f'{datetime.datetime.now()} {args.type} Train finished')
-    classifier.export('tpot_pipeline.py')
+    if args.type == 'TPOT':
+        classifier.export('tpot_pipeline.py')
     train_accuracy = test.eval_ml(x_train, y_train, classifier)
     test_accuracy = test.eval_ml(x_test, y_test, classifier)
     print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
-    save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
-    utils.save_ml(classifier, save_name)
+    if args.type != 'TPOT':
+        save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
+        utils.save_ml(classifier, save_name)
 
 
 def main():
