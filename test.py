@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import os
 
 import torch
@@ -37,23 +38,34 @@ def eval_ml(x, y, classifier):
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluation script of ECG problem.')
-    parser.add_argument('--type', choices=['CNN', 'MLP', 'RF', 'SVM', 'XGBoost'], default='RF',
+    parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
+                                           'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
+                                           'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
+                                           'RF', 'SVM', 'XGBoost'], default='CNN_a',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to data directory')
-    parser.add_argument('--model_file', type=str, default='2020-05-21 19:36:38.771975_RandomForestClassifier/model.joblib', help='Name of model weights file')
+    parser.add_argument('--num_workers', type=int, default=4, help='Num workers to loader.')
+    parser.add_argument('--batch', type=int, default=1, help='Batch size.')
+    parser.add_argument('--model_file', type=str,
+                        default='CNN_a.pth',
+                        help='Name of model weights file relative to ./models folder')
     parser.add_argument('--save_onnx', type=bool, default=False, help='Use to save model as .onnx')
     args = parser.parse_args()
     model = utils.create_model_by_name(args.type, args.model_file)
     reference_path = os.path.join(args.base_path, 'REFERENCE.csv')
     data_loader = dataset.Loader(args.base_path, reference_path)
-    if args.type in ['CNN', 'MLP']:
+    if args.type in ['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
+                     'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
+                     'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a']:
         if torch.cuda.is_available():
             model = model.cuda()
 
+        print(f'{datetime.datetime.now()} start loading data')
         df = data_loader.load_as_df_for_net(normalize=True)
         df = dataset.ECGDataset(df, 1, random_state=13)
-        loader = DataLoader(df, batch_size=1, num_workers=4)
+        loader = DataLoader(df, batch_size=args.batch, num_workers=args.num_workers)
         criterion = torch.nn.CrossEntropyLoss()
+        print(f'{datetime.datetime.now()} evaluating...')
         val_loss, val_acc = evaluate(model, loader, criterion)
         if args.save_onnx:
             dummy_input_ecg = torch.randn(10, 12, 2500)
@@ -64,11 +76,13 @@ def main():
                               f'{args.type}.onnx', verbose=True, input_names=['non_ecg', 'ecg'],
                               output_names=['classes']
                               )
-        print(f'{args.type} full dataset accuracy: {val_acc}')
-    elif args.type in ['SVM', 'RF', 'XGBoost']:
+        print(f'{datetime.datetime.now()} {args.type} full dataset accuracy: {val_acc}')
+    elif args.type in ['SVM', 'RF', 'XGBoost', 'TPOT']:
+        print(f'{datetime.datetime.now()} start loading data')
         x, y = data_loader.load_as_x_y_for_ml(normalize=True)
+        print(f'{datetime.datetime.now()} evaluating...')
         acc = eval_ml(x, y, model)
-        print(f'{args.type} full dataset accuracy: {acc}')
+        print(f'{datetime.datetime.now()} {args.type} full dataset accuracy: {acc}')
     else:
         raise Exception(f'Unknown model type {args.type}')
 
