@@ -151,6 +151,7 @@ def main():
               f'Records count: {y.shape[0]} \n')
         if args.calc_score:
             conf = confusion_matrix(y, predictions)
+            print(conf)
             calc_score(conf)
     else:
         raise Exception(f'Unknown model type {args.type}')

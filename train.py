@@ -84,10 +84,10 @@ def train(args):
             loss.backward()
             optimizer.step()
             if i % args.print_every == 0:
-                val_loss, val_acc = test.evaluate(net, test_loader, criterion)
+                val_loss, val_acc, _ = test.evaluate(net, test_loader, criterion)
                 _write_checkpoint(writer, e, args.epochs, i + 1, iteration_per_epochs, acc, loss, val_acc, val_loss)
 
-        val_loss, val_acc = test.evaluate(net, test_loader, criterion)
+        val_loss, val_acc, _ = test.evaluate(net, test_loader, criterion)
         label = _write_checkpoint(writer, e, args.epochs, iteration_per_epochs,
                                   iteration_per_epochs, acc, loss, val_acc, val_loss)
         checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{label}).pth')
@@ -112,6 +112,7 @@ def draw(args):
 def train_ml(args):
     multiplier, slice_size = args.multiplier, args.slice
     reference_path = f'{args.base_path}/REFERENCE.csv'
+    print(f'{datetime.datetime.now()} Loading data')
     x, y = (dataset.Loader(args.base_path, reference_path)
             .load_as_x_y_for_ml(normalize=True,
                                 augmentation_multiplier=multiplier,
@@ -122,7 +123,7 @@ def train_ml(args):
     elif args.type == 'SVM':
         classifier = SVC(random_state=42)
     elif args.type == 'XGBoost':
-        classifier = XGBClassifier(objective='multi:softmax', tree_method='gpu_hist', num_class=9, random_state=42)
+        classifier = XGBClassifier(objective='multi:softmax', num_class=9, random_state=42)
     elif args.type == 'TPOT':
         classifier = tpot.TPOTClassifier(generations=5, population_size=50, verbosity=2, random_state=42, n_jobs=1)
     else:
@@ -132,8 +133,8 @@ def train_ml(args):
     print(f'{datetime.datetime.now()} {args.type} Train finished')
     if args.type == 'TPOT':
         classifier.export('tpot_pipeline.py')
-    train_accuracy = test.eval_ml(x_train, y_train, classifier)
-    test_accuracy = test.eval_ml(x_test, y_test, classifier)
+    train_accuracy, _ = test.eval_ml(x_train, y_train, classifier)
+    test_accuracy, _ = test.eval_ml(x_test, y_test, classifier)
     print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
     if args.type != 'TPOT':
         save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
@@ -146,7 +147,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=1500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=40,
+    parser.add_argument('--multiplier', type=int, default=0,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=30, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
@@ -154,7 +155,7 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost'], default='CNN',
+                                           'RF', 'SVM', 'XGBoost'], default='XGBoost',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
