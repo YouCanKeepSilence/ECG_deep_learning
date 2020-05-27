@@ -142,7 +142,7 @@ def main():
         x, y = data_loader.load_as_x_y_for_ml(normalize=True)
         start_time = datetime.datetime.now()
         print(f'{start_time} evaluating...')
-        acc = eval_ml(x, y, model)
+        acc, predictions = eval_ml(x, y, model)
         end_time = datetime.datetime.now()
         delta = (end_time - start_time).total_seconds()
         print(f'{end_time} {args.type} Inference time: {delta} secs. '
@@ -150,7 +150,8 @@ def main():
               f'Full dataset accuracy: {acc} \n'
               f'Records count: {y.shape[0]} \n')
         if args.calc_score:
-            calc_score(np.array([1]))
+            conf = confusion_matrix(y, predictions)
+            calc_score(conf)
     else:
         raise Exception(f'Unknown model type {args.type}')
 
