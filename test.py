@@ -84,13 +84,13 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost'], default='CNN',
+                                           'RF', 'SVM', 'XGBoost'], default='RF',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to data directory')
     parser.add_argument('--num_workers', type=int, default=4, help='Num workers to loader.')
     parser.add_argument('--batch', type=int, default=1, help='Batch size.')
     parser.add_argument('--model_file', type=str,
-                        default='CNN/CNN.pth',
+                        default='RF.joblib',
                         help='Name of model weights file relative to ./models folder')
     parser.add_argument('--save_onnx', type=bool, default=False, help='Use to save model as .onnx')
     parser.add_argument('--calc_score', type=bool, default=True, help='Use to calculate competition score')

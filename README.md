@@ -56,16 +56,16 @@ SVM, RF, XGBoost were tested without augmentation.
 
 _a suffix mean that network uses avg pooling instead of max.
 
-| Model  | Train accuracy  |  Test accuracy  | Full dataset accuracy  | F1 competition metric | Inference time (msecs/record) |
-|:---:|:---:|:---:|:---:|:---:|:---:|
-|CNN   | 95% | 65% | 84% |  | |
-|CNN_a   |  95% | 65%  |  88% | | |
-|VGGLikeCNN   | 96%  | 66%  | 87%  | | |
-|VGGLikeCNN_a   | 97%  | 66%  | 88%  | | |
-|<b>VGG_11</b>   | <b>94%</b>  | <b>73%</b>  | <b>90% </b> | | |
-|MLP   | 66%  | 56%  | 63%  | | |
+| Model  | Train accuracy  |  Test accuracy  | Full dataset accuracy  | F1 competition metric | Faf | Fblock | Fpc | Fst | Inference time (milliseconds/record) |
+|:------:|:---------------:|:---------------:|:----------------------:|:---------------------:|:---:|:------:|:---:|:---:|:------------------------------------:|
+|CNN   | 95% | 65% | 84% | 0.809 | 0.758 | 0.889 | 0.713 | 0.807 | 2.609 |
+|CNN_a   |  95% | 65%  |  88% | 0.857 | 0.876 | 0.908 | 0.794 | 0.848 | 2.529 | 
+|VGGLikeCNN   | 96%  | 66%  | 87%  | 0.856  | 0.883 | 0.883 | 0.817 | 0.861 | 3.011 |
+|VGGLikeCNN_a   | 97%  | 66%  | 88%  | 0.858 | 0.891 | 0.901 |  0.808 | 0.856 | 2.987 |
+|<b>VGG_11</b>   | <b>94%</b>  | <b>73%</b>  | <b>90% </b> | 0.883 | 0.903 | 0.927 | 0.820 | 0.889 | 3.758 |   
+|MLP   | 66%  | 56%  | 63%  | 0.563 | 0.598 | 0.708 | 0.422 | 0.557 | 1.925 | 
 |SVM   | 73%   | 49%  | 66%  | | |
-|Random Forest | 98%  | 51% | 84%  | | |
+|Random Forest | 98%  | 51% | 84% |  | |
 |XGBoost   | 98%  | 57%  | 86%  | | |
 
 
