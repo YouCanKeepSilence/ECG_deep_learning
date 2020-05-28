@@ -3,6 +3,7 @@ import datetime
 import os
 
 import tpot
+from sklearn.model_selection import RandomizedSearchCV
 
 import utils
 import torch
@@ -141,6 +142,46 @@ def train_ml(args):
         utils.save_ml(classifier, save_name)
 
 
+def tune_ml_params(args):
+    multiplier, slice_size = args.multiplier, args.slice
+    reference_path = f'{args.base_path}/REFERENCE.csv'
+    print(f'{datetime.datetime.now()} Loading data')
+    x, y = (dataset.Loader(args.base_path, reference_path)
+            .load_as_x_y_for_ml(normalize=True,
+                                augmentation_multiplier=multiplier,
+                                augmentation_slice_size=slice_size))
+    x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
+    if args.type == 'RandomizedRF':
+        import scipy.stats as st
+        params_grid = {
+            'n_estimators': [10 ** x for x in range(4)],
+            'max_features': ['auto', 'sqrt'],
+            'max_depth': list(range(10, 100)) + [None],
+            'min_samples_split': st.randint(2, 10),
+            'min_samples_leaf': st.randint(1, 10),
+            'bootstrap': [True, False],
+            'criterion': ['gini', 'entropy']
+        }
+        estimator = RandomForestClassifier()
+        params_fitter = RandomizedSearchCV(estimator=estimator, param_distributions=params_grid,
+                                           n_iter=10, cv=3, verbose=2, n_jobs=-1,
+                                           random_state=42)
+    else:
+        raise Exception(f'Unknown classifier name {args.type}')
+    start_time = datetime.datetime.now()
+    print(f'{start_time} {args.type} Train started')
+    params_fitter.fit(x_train, y_train)
+    end_time = datetime.datetime.now()
+    print(f'{end_time} {args.type} Train finished. Elapsed time {(end_time - start_time).total_seconds()} secs.')
+    print(f'Best params: {params_fitter.best_params_}, Best result: {params_fitter.best_score_}')
+    train_accuracy, _ = test.eval_ml(x_train, y_train, params_fitter)
+    test_accuracy, _ = test.eval_ml(x_test, y_test, params_fitter)
+    print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    if args.type != 'TPOT':
+        save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
+        utils.save_ml(params_fitter, save_name)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Training script of ECG problem.')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
@@ -155,7 +196,7 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost'], default='XGBoost',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='RandomizedRF',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
@@ -166,6 +207,8 @@ def main():
         train(args)
     elif args.type in ['RF', 'SVM', 'XGBoost', 'TPOT']:
         train_ml(args)
+    elif args.type in ['RandomizedRF']:
+        tune_ml_params(args)
     else:
         raise Exception(f'Unknown model type {args.type}')
 
