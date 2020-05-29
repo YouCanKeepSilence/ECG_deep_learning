@@ -90,7 +90,7 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Num workers to loader.')
     parser.add_argument('--batch', type=int, default=1, help='Batch size.')
     parser.add_argument('--model_file', type=str,
-                        default='RF.joblib',
+                        default='OptimalRF.joblib',
                         help='Name of model weights file relative to ./models folder')
     parser.add_argument('--save_onnx', type=bool, default=False, help='Use to save model as .onnx')
     parser.add_argument('--calc_score', type=bool, default=True, help='Use to calculate competition score')
