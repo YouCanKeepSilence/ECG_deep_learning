@@ -21,6 +21,8 @@ import dataset
 
 import sklearn.model_selection
 
+USE_CV_OPTIMUM_RF = True
+
 
 def _write_checkpoint(writer, e, epochs, i, iteration_per_epochs, acc, loss, val_acc, val_loss):
     in_epoch_progress = round(i / iteration_per_epochs, 2)
@@ -120,7 +122,19 @@ def train_ml(args):
                                 augmentation_slice_size=slice_size))
     x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
     if args.type == 'RF':
-        classifier = RandomForestClassifier(random_state=42, n_jobs=-1)
+        forest_options = {}
+        if USE_CV_OPTIMUM_RF:
+            # CV-3 value 0.4083960502053412. Optimum for 100 iteration
+            forest_options = {
+                'bootstrap': False,
+                'criterion': 'gini',
+                'max_depth': 45,
+                'max_features': 'auto',
+                'min_samples_leaf': 1,
+                'min_samples_split': 6,
+                'n_estimators': 410
+            }
+        classifier = RandomForestClassifier(random_state=42, n_jobs=-1, **forest_options)
     elif args.type == 'SVM':
         classifier = SVC(random_state=42)
     elif args.type == 'XGBoost':
@@ -154,7 +168,7 @@ def tune_ml_params(args):
     if args.type == 'RandomizedRF':
         import scipy.stats as st
         params_grid = {
-            'n_estimators': [10 ** x for x in range(4)],
+            'n_estimators': [10 ** x for x in range(10, 1011, 50)],
             'max_features': ['auto', 'sqrt'],
             'max_depth': list(range(10, 100)) + [None],
             'min_samples_split': st.randint(2, 10),
@@ -196,7 +210,7 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='RandomizedRF',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='RF',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
