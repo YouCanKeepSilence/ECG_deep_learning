@@ -26,8 +26,8 @@ Label field classify all patients to 9 classes:
 
 Target - predict illness "label" by rest columns from dataset.
 
-## Hypothesis
-Our aim is to check next hypothesis:
+## Hypotheses
+Our aim is to check next hypotheses:
 1) Main hypothesis that we able to predict illness by ecg data with ML algorithms and accuracy will be higher than 60%. 
 2) We think that classical ML algorithms will be worse than Neural Nets
 3) We suppose that Convolutional NN will be the most accurate model for this problem 
