@@ -3,6 +3,7 @@ import datetime
 import os
 
 import tpot
+from sklearn.model_selection import RandomizedSearchCV
 
 import utils
 import torch
@@ -12,7 +13,6 @@ from sklearn.svm import SVC
 from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import matplotlib.pyplot as plt
 from xgboost import XGBClassifier
 
 import models
@@ -20,23 +20,7 @@ import dataset
 
 import sklearn.model_selection
 
-
-def _write_checkpoint(writer, e, epochs, i, iteration_per_epochs, acc, loss, val_acc, val_loss):
-    in_epoch_progress = round(i / iteration_per_epochs, 2)
-    full_progress = round((e * iteration_per_epochs + i) / (epochs * iteration_per_epochs), 2)
-    print(f'{datetime.datetime.now()}\n '
-          f'Epoch: {e}/{epochs}, Iteration: {i}/{iteration_per_epochs}, '
-          f'In epoch progress ({in_epoch_progress * 100} %)\n'
-          f'Full progress {full_progress * 100} %\n'
-          f'Loss: {loss.item()} , Acc: {acc} \n'
-          f'Val Loss: {val_loss}, Val Acc: {val_acc} \n'
-          )
-    step_label = e * iteration_per_epochs + i
-    writer.add_scalar('Train/Acc', acc, step_label)
-    writer.add_scalar('Train/Loss', loss.item(), step_label)
-    writer.add_scalar('Val/Loss', val_loss, step_label)
-    writer.add_scalar('Val/Acc', val_acc, step_label)
-    return step_label
+USE_CV_OPTIMUM_RF = True
 
 
 def train(args):
@@ -84,12 +68,12 @@ def train(args):
             loss.backward()
             optimizer.step()
             if i % args.print_every == 0:
-                val_loss, val_acc = test.evaluate(net, test_loader, criterion)
-                _write_checkpoint(writer, e, args.epochs, i + 1, iteration_per_epochs, acc, loss, val_acc, val_loss)
+                val_loss, val_acc, _ = test.evaluate(net, test_loader, criterion)
+                utils.write_checkpoint(writer, e, args.epochs, i + 1, iteration_per_epochs, acc, loss, val_acc, val_loss)
 
-        val_loss, val_acc = test.evaluate(net, test_loader, criterion)
-        label = _write_checkpoint(writer, e, args.epochs, iteration_per_epochs,
-                                  iteration_per_epochs, acc, loss, val_acc, val_loss)
+        val_loss, val_acc, _ = test.evaluate(net, test_loader, criterion)
+        label = utils.write_checkpoint(writer, e, args.epochs, iteration_per_epochs,
+                                       iteration_per_epochs, acc, loss, val_acc, val_loss)
         checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{label}).pth')
         utils.save_net_model(net, checkpoint_name)
         print(f'Checkpoint of epoch {e} saved'
@@ -97,32 +81,33 @@ def train(args):
               )
 
 
-def draw(args):
-    reference_path = f'{args.base_path}/REFERENCE.csv'
-    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
-    sample = df.iloc[0]['ecg']
-    labels = list(range(sample.shape[1]))
-    for i in range(sample.shape[0]):
-        plt.plot(labels, sample[i], label=f'sensor_{i}')
-    plt.grid()
-    plt.legend()
-    plt.show()
-
-
 def train_ml(args):
     multiplier, slice_size = args.multiplier, args.slice
     reference_path = f'{args.base_path}/REFERENCE.csv'
+    print(f'{datetime.datetime.now()} Loading data')
     x, y = (dataset.Loader(args.base_path, reference_path)
             .load_as_x_y_for_ml(normalize=True,
                                 augmentation_multiplier=multiplier,
                                 augmentation_slice_size=slice_size))
     x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
     if args.type == 'RF':
-        classifier = RandomForestClassifier(random_state=42, n_jobs=-1)
+        forest_options = {}
+        if USE_CV_OPTIMUM_RF:
+            # CV-3 value 0.4083960502053412. Optimum for 100 iteration
+            forest_options = {
+                'bootstrap': False,
+                'criterion': 'gini',
+                'max_depth': 45,
+                'max_features': 'auto',
+                'min_samples_leaf': 1,
+                'min_samples_split': 6,
+                'n_estimators': 410
+            }
+        classifier = RandomForestClassifier(random_state=42, n_jobs=-1, **forest_options)
     elif args.type == 'SVM':
         classifier = SVC(random_state=42)
     elif args.type == 'XGBoost':
-        classifier = XGBClassifier(objective='multi:softmax', tree_method='gpu_hist', num_class=9, random_state=42)
+        classifier = XGBClassifier(objective='multi:softmax', num_class=9, random_state=42)
     elif args.type == 'TPOT':
         classifier = tpot.TPOTClassifier(generations=5, population_size=50, verbosity=2, random_state=42, n_jobs=1)
     else:
@@ -132,12 +117,52 @@ def train_ml(args):
     print(f'{datetime.datetime.now()} {args.type} Train finished')
     if args.type == 'TPOT':
         classifier.export('tpot_pipeline.py')
-    train_accuracy = test.eval_ml(x_train, y_train, classifier)
-    test_accuracy = test.eval_ml(x_test, y_test, classifier)
+    train_accuracy, _ = test.eval_ml(x_train, y_train, classifier)
+    test_accuracy, _ = test.eval_ml(x_test, y_test, classifier)
     print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
     if args.type != 'TPOT':
         save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
         utils.save_ml(classifier, save_name)
+
+
+def tune_ml_params(args):
+    multiplier, slice_size = args.multiplier, args.slice
+    reference_path = f'{args.base_path}/REFERENCE.csv'
+    print(f'{datetime.datetime.now()} Loading data')
+    x, y = (dataset.Loader(args.base_path, reference_path)
+            .load_as_x_y_for_ml(normalize=True,
+                                augmentation_multiplier=multiplier,
+                                augmentation_slice_size=slice_size))
+    x_train, x_test, y_train, y_test = sklearn.model_selection.train_test_split(x, y, random_state=42, test_size=0.3)
+    if args.type == 'RandomizedRF':
+        import scipy.stats as st
+        params_grid = {
+            'n_estimators': [10 ** x for x in range(10, 1011, 50)],
+            'max_features': ['auto', 'sqrt'],
+            'max_depth': list(range(10, 100)) + [None],
+            'min_samples_split': st.randint(2, 10),
+            'min_samples_leaf': st.randint(1, 10),
+            'bootstrap': [True, False],
+            'criterion': ['gini', 'entropy']
+        }
+        estimator = RandomForestClassifier()
+        params_fitter = RandomizedSearchCV(estimator=estimator, param_distributions=params_grid,
+                                           n_iter=10, cv=3, verbose=2, n_jobs=-1,
+                                           random_state=42)
+    else:
+        raise Exception(f'Unknown classifier name {args.type}')
+    start_time = datetime.datetime.now()
+    print(f'{start_time} {args.type} Train started')
+    params_fitter.fit(x_train, y_train)
+    end_time = datetime.datetime.now()
+    print(f'{end_time} {args.type} Train finished. Elapsed time {(end_time - start_time).total_seconds()} secs.')
+    print(f'Best params: {params_fitter.best_params_}, Best result: {params_fitter.best_score_}')
+    train_accuracy, _ = test.eval_ml(x_train, y_train, params_fitter)
+    test_accuracy, _ = test.eval_ml(x_test, y_test, params_fitter)
+    print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    if args.type != 'TPOT':
+        save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
+        utils.save_ml(params_fitter, save_name)
 
 
 def main():
@@ -146,7 +171,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=1500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=40,
+    parser.add_argument('--multiplier', type=int, default=0,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=30, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
@@ -154,7 +179,7 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost'], default='CNN',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='RF',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
@@ -165,6 +190,8 @@ def main():
         train(args)
     elif args.type in ['RF', 'SVM', 'XGBoost', 'TPOT']:
         train_ml(args)
+    elif args.type in ['RandomizedRF']:
+        tune_ml_params(args)
     else:
         raise Exception(f'Unknown model type {args.type}')
 

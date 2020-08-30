@@ -145,11 +145,10 @@ class Loader:
                 raise Exception(f'Not implemented OneHot Encoding for categorical column {categorical_name}')
 
         # Numeric columns normalization
-        columns_to_normalize = df.columns.difference([*categorical_names]).to_list()
         # Optimize normalization, to fit in memory
         normalize_batch = 1000
-        for i in range(0, len(columns_to_normalize), normalize_batch):
-            sliced = columns_to_normalize[i:i + normalize_batch]
+        for i in range(0, len(numerical_names), normalize_batch):
+            sliced = numerical_names[i:i + normalize_batch]
             df[sliced] = (df[sliced] - df[sliced].mean(axis=0)) / df[sliced].std(axis=0)
 
         return df
