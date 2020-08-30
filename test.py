@@ -3,7 +3,6 @@ import datetime
 import os
 
 import torch
-import torchvision
 from sklearn.metrics import accuracy_score, confusion_matrix
 from torch.utils.data import DataLoader
 import numpy as np

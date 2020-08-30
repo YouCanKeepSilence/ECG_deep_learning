@@ -4,6 +4,10 @@ Automatic identification of the rhythm/morphology abnormalities in 12-lead ECGs.
 Original competition [link](http://2018.icbeb.org/Challenge.html)
 
 Dataset contains age, gender and 12-lead ECG data of patients with or without illness.
+
+ECG data example:
+
+![](./ecg_example.png)
  
 Label field classify all patients to 9 classes:
 
@@ -21,6 +25,12 @@ Label field classify all patients to 9 classes:
 
 
 Target - predict illness "label" by rest columns from dataset.
+
+## Hypothesis
+Our aim is to check next hypothesis:
+1) Main hypothesis that we able to predict illness by ecg data with ML algorithms and accuracy will be higher than 60%. 
+2) We think that classical ML algorithms will be worse than Neural Nets
+3) We suppose that Convolutional NN will be the most accurate model for this problem 
 
 
 ## Installation
@@ -40,7 +50,7 @@ To test you can download needed model file from [here](https://drive.google.com/
 
 `python test.py --base_path=${YOUR_DATA_FOLDER_PATH} --type=${NEEDED_MODEL_TYPE} --model_path=${PATH_TO_MODEL_FILE}`
 
-## Model scores
+## Model scores and performance
 Networks were tested with 2500 slice size and 40 augmentation multiplier. 
 Test size was 30% of augmented dataset.
 
@@ -48,9 +58,12 @@ All networks learn for 20 epochs. After that I tried to get
 best checkpoint and write result of them.
 
 To measure full dataset accuracy were generated 1 slice with 2500 
-length with another random_state and batch_size = 1
+length with another random_state and batch_size = 1.
 
-You can find TensorBoard files of NN learning process and model weights files [here](https://drive.google.com/open?id=1aIyH4n2bxR1vX3d95IOmp5dsQOIeh9U2) 
+Inference time was measured at GTX 1060 6GB and i5-2550k 4.4 GHz hardware.
+
+You can download TensorBoard files of NN learning process and model weights files [here](https://drive.google.com/open?id=1aIyH4n2bxR1vX3d95IOmp5dsQOIeh9U2) 
+OR you can just view TensorBoard logs [here](https://tensorboard.dev/experiment/q55Ra1TkSxy0XH9gdg4fQw/)
 
 SVM, RF, XGBoost were tested without augmentation. 
 
@@ -70,3 +83,9 @@ _a suffix mean that network uses avg pooling instead of max.
 |XGBoost   | 98%  | 45%  | 82%  | 0.807 | 0.783 | 0.841 | 0.795 | 0.808 |  2.657 |
 
 
+## Conclusion
+We proved that ML algorithms able to solve this problem with accuracy about 73%, also we were right that the most accurate 
+result was demonstrated by Convolutional Neural Net. Also we made up comparative
+table where you can see different types of accuracy, competition metrics and inference time for all tested models.
+Now we going to improve params and architecture of this net
+to increase accuracy of the model and reach new results.   
