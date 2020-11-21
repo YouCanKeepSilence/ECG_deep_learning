@@ -30,6 +30,46 @@ class MLP(nn.Module):
         return x
 
 
+class CNNFromArticle(nn.Module):
+    def __init__(self, num_classes=9, number_of_channels=12):
+        super(CNNFromArticle, self).__init__()
+        self.conv = nn.Sequential(
+            nn.BatchNorm1d(number_of_channels),
+            nn.Conv1d(number_of_channels, 24, 5, stride=1, padding=0),
+            nn.BatchNorm1d(24),
+            nn.ReLU(),
+            nn.MaxPool1d(5),
+            nn.Conv1d(24, 24, 5, stride=1, padding=0),
+            nn.BatchNorm1d(24),
+            nn.ReLU(),
+            nn.MaxPool1d(5),
+            nn.Conv1d(24, 36, 5, stride=1, padding=0),
+            nn.BatchNorm1d(36),
+            nn.ReLU(),
+            nn.MaxPool1d(5),
+            nn.Conv1d(36, 36, 5, stride=1, padding=0),
+            nn.BatchNorm1d(36),
+            nn.ReLU()
+        )
+
+        self.fc = nn.Sequential(
+            nn.BatchNorm1d(542),
+            nn.Linear(542, 100),
+            nn.ReLU(),
+            nn.Dropout(p=0.5),
+            nn.Linear(100, num_classes)
+        )
+
+    def forward(self, non_ecg, ecg):
+        x = self.conv(ecg)
+        x = x.view(x.size(0), -1)
+        x = torch.cat((non_ecg, x), dim=1)
+        # print(x.size())
+        self.fc(x)
+        # we don't need activation here in reason of CrossEntropyLoss usage. It includes LogSoftmax inside
+        return x
+
+
 class CNN(nn.Module):
     def __init__(self, num_classes=9, number_of_channels=12, pooling='max'):
         super(CNN, self).__init__()

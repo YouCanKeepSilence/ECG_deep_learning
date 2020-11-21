@@ -22,6 +22,8 @@ import sklearn.model_selection
 
 USE_CV_OPTIMUM_RF = True
 
+torch.manual_seed(42)
+
 
 def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
@@ -42,7 +44,7 @@ def train(args):
     elif args.type.startswith('VGGLikeCNN'):
         pooling = 'max' if len(args.type.split('_')) == 1 else 'avg'
         net = models.VGGLikeCNN(num_classes=args.num_classes, pooling=pooling)
-    elif args.type.startswith('CNN'):
+    elif args.type.startswith('CNN_') or args.type == 'CNN':
         pooling = 'max' if len(args.type.split('_')) == 1 else 'avg'
         net = models.CNN(num_classes=args.num_classes, pooling=pooling)
     else:
@@ -178,8 +180,8 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Num workers to loader.')
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
-                                           'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNN',
+                                           'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a', 'CNNFromArticle',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNNFromArticle',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
@@ -188,7 +190,7 @@ def main():
 
     if args.type in ['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                      'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
-                     'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a']:
+                     'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a', 'CNNFromArticle']:
         train(args)
     elif args.type in ['RF', 'SVM', 'XGBoost', 'TPOT']:
         train_ml(args)
