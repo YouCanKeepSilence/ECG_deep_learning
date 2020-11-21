@@ -171,7 +171,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=20, help='Total number of epochs.')
     parser.add_argument('--batch', type=int, default=1500, help='Batch size.')
     parser.add_argument('--slice', type=int, default=2500, help='Wide of augmentation window.')
-    parser.add_argument('--multiplier', type=int, default=0,
+    parser.add_argument('--multiplier', type=int, default=10,
                         help='Number of repeats of augmentation process. 0 - disable augmentation')
     parser.add_argument('--print_every', type=int, default=30, help='Print every # iterations.')
     parser.add_argument('--num_classes', type=int, default=9, help='Num classes.')
@@ -179,10 +179,12 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a',
-                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='RF',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
+
+    print(f'{datetime.datetime.now()} Launched with params: {args}')
 
     if args.type in ['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                      'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
