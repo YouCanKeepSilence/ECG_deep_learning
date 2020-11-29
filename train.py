@@ -14,6 +14,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from xgboost import XGBClassifier
+import numpy as np
 
 import models
 import dataset
@@ -23,6 +24,7 @@ import sklearn.model_selection
 USE_CV_OPTIMUM_RF = True
 
 torch.manual_seed(42)
+np.random.seed(42)
 
 
 def train(args):
