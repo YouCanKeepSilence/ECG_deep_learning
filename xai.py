@@ -24,12 +24,15 @@ def signal_preprocessing(ecg_lead, sample_freq=ECG_FREQUENCY, borders=(1, 40)):
     return signal.filtfilt(b, a, ecg_lead)
 
 
-def draw_signal_with_interpretability(signal_12_lead, interpretability):
+def draw_signal_with_interpretability(signal_12_lead, interpretability, non_ecg_data, non_ecg_interpretability):
     signals_count, signal_len = signal_12_lead.shape
     fig, ax = plt.subplots(nrows=signals_count, ncols=2,
                            figsize=(24, 3 * signals_count), sharex=True,
                            gridspec_kw={"width_ratios": [1, 0.025]})
     ticks = np.linspace(0, signal_len / ECG_FREQUENCY, signal_len)
+    min_interpreb = np.concatenate((non_ecg_interpretability, interpretability.reshape(-1))).min()
+    max_interpreb = np.concatenate((non_ecg_interpretability, interpretability.reshape(-1))).max()
+    norm_func = plt.Normalize(min_interpreb, max_interpreb)
     for i in range(signals_count):
         current_lead = signal_12_lead[i, :]
         current_interpretability = interpretability[i, :]
@@ -41,7 +44,7 @@ def draw_signal_with_interpretability(signal_12_lead, interpretability):
         # Преобразуем в сегменты вида [[[x1, y1], [x2, y2]], [[x2, y2], [x3, y3]]]
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         # Нужна для построения корректного color-map (нормируем значения на промежуток [0, 1]
-        norm_func = plt.Normalize(current_interpretability.min(), current_interpretability.max())
+
         # Рисуем LineCollection (т.к. график превратился в набор линий)
         lc = LineCollection(segments, cmap='inferno_r', norm=norm_func)
         # Используем значения interpretability как colormap
@@ -61,6 +64,8 @@ def draw_signal_with_interpretability(signal_12_lead, interpretability):
         ax[i, 0].get_xaxis().set_ticks([])
         ax[i, 0].grid()
 
+    print(f'Non ecg_data: {non_ecg_data}. Interpreb: {norm_func(non_ecg_interpretability)}.'
+          f' MinMax intepreb: {norm_func(np.array([min_interpreb, max_interpreb]))}')
     plt.subplots_adjust(wspace=0.05, hspace=0.1)
     plt.grid()
     plt.show()
@@ -77,20 +82,22 @@ def launch_xai(model):
     loader = DataLoader(df, batch_size=1, shuffle=False)
     loader_iter = iter(loader)
     non_ecg, ecg, label = next(loader_iter)
+    non_ecg_numpy = non_ecg.squeeze().cpu().detach().numpy()
     ecg_numpy = ecg.squeeze().cpu().detach().numpy()
-    utils.draw_signal(ecg_numpy)
-    utils.draw_signal(ecg_numpy, preprocessing_func=signal_preprocessing)
+    # utils.draw_signal(ecg_numpy)
+    # utils.draw_signal(ecg_numpy, preprocessing_func=signal_preprocessing)
     saliency = Saliency(model)
     non_ecg.requires_grad = True
     ecg.requires_grad = True
-    _, ecg_grads = saliency.attribute((non_ecg, ecg), target=label)
+    non_ecg_grads, ecg_grads = saliency.attribute((non_ecg, ecg), target=label)
     # .squeeze убирает все axis с размерностью 1, в данном случае мы избавляемся от батча
     ecg_grads_numpy = ecg_grads.squeeze().cpu().detach().numpy()
+    non_ecg_grads_numpy = non_ecg_grads.squeeze().cpu().detach().numpy()
     # ecg_numpy = ecg.squeeze().cpu().detach().numpy()
-    draw_signal_with_interpretability(ecg_numpy, ecg_grads_numpy)
+    draw_signal_with_interpretability(ecg_numpy, ecg_grads_numpy, non_ecg_numpy, non_ecg_grads_numpy)
 
 
 if __name__ == '__main__':
-    _model = utils.create_model_by_name('CNN', 'CNN/CNN.pth')
+    _model = utils.create_model_by_name('CNN_a', 'CNN_a/CNN_a_with_preprocessing.pth')
     _model.eval()
     launch_xai(_model)
