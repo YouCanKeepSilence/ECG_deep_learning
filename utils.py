@@ -1,5 +1,6 @@
 import datetime
 import os
+from scipy import signal
 from collections import namedtuple
 
 import torch
@@ -12,23 +13,60 @@ import models
 MODEL_SAVE_FOLDER = './models'
 
 
+# Filter whole ecg with butterworth bandpass filter
+def process_full_ecg(ecg, frequency, borders=(3, 30)):
+    for i in range(ecg.shape[0]):
+        ecg[i, :] = process_single_ecg_lead(ecg[i, :], frequency, borders)
+    return ecg
+
+
+def process_single_ecg_lead(ecg_lead, frequency, borders=(1, 40)):
+    # Filters the single lead of ecg with a butterworth bandpass filter with cutoff frequencies fc=[a, b]
+    f0 = 2 * float(borders[0]) / float(frequency)
+    f1 = 2 * float(borders[1]) / float(frequency)
+    b, a = signal.butter(2, [f0, f1], btype='bandpass')
+    return signal.filtfilt(b, a, ecg_lead)
+
+
 def _prove_directory_exists(directory):
     check_array = directory.split('/')
     # if name contains subdirectory we should prove that it is exist
     os.makedirs(os.path.join(*check_array[:-1]), exist_ok=True)
 
 
-def draw(args):
-    reference_path = os.path.join(args.base_path, 'REFERENCE.csv')
-    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
-    sample = df.iloc[1]['ecg']
-    labels = list(range(sample.shape[1]))
-    for i in range(sample.shape[0]):
-        plt.plot(labels, sample[i], label=f'sensor_{i}')
+def draw_ecg(ecg_sample):
+    sensors_count, ecg_len = ecg_sample.shape
+    labels = list(range(ecg_len))
+    for i in range(sensors_count):
+        plt.plot(labels, ecg_sample[i], label=f'sensor_{i}')
     plt.grid()
     plt.legend(ncol=3, loc='best')
     plt.savefig('ecg_example.png')
     plt.show()
+
+
+def draw_signal(signal_12_lead, preprocessing_func=None):
+    fig, ax = plt.subplots(signal_12_lead.shape[0], 1, figsize=(24, 0.8 * signal_12_lead.shape[0]), sharex=True)
+    x_ticks = list(range(signal_12_lead.shape[1]))
+    for i in range(signal_12_lead.shape[0]):
+        to_draw = signal_12_lead[i, :]
+        if preprocessing_func:
+            to_draw = preprocessing_func(to_draw)
+        # lc = LineCollection(signal_12_lead[i, :], cmap='inferno_r')
+        ax[i].plot(x_ticks, to_draw)
+        ax[i].set_title(f'Lead {i + 1}')
+        ax[i].grid()
+
+    plt.subplots_adjust(wspace=0.05, hspace=0.1)
+    plt.grid()
+    plt.show()
+
+
+def draw(args):
+    reference_path = os.path.join(args.base_path, 'REFERENCE.csv')
+    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
+    sample = df.iloc[1]['ecg']
+    draw_ecg(sample)
 
 
 def write_checkpoint(writer, e, epochs, i, iteration_per_epochs, acc, loss, val_acc, val_loss):

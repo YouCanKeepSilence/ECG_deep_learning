@@ -183,7 +183,7 @@ def main():
     parser.add_argument('--type', choices=['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                                            'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
                                            'VGG_11a', 'VGG_13a', 'VGG_16a', 'VGG_19a', 'CNNFromArticle',
-                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNNFromArticle',
+                                           'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()

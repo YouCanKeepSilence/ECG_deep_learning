@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 import torch.utils.data as data_utils
+import utils
+ECG_FREQUENCY = 500.0
 
 
 class Loader:
@@ -53,6 +55,10 @@ class Loader:
             data.at[data['gender'] == 'Male', 'gender'] = 0
             data.at[data['gender'] == 'Female', 'gender'] = 1
             data['gender'] = data['gender'].astype(np.float32)
+            # preprocessing signal
+            # utils.draw_ecg(data.iloc[0]['ecg'])
+            data['ecg'] = data['ecg'].apply(lambda x: utils.process_full_ecg(x, frequency=ECG_FREQUENCY))
+            # utils.draw_ecg(data.iloc[0]['ecg'])
         return data
 
     def load_as_x_y_for_ml(self, normalize=True, *,
