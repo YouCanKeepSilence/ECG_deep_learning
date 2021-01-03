@@ -1,0 +1,13 @@
+xgboost==1.1.0
+torch==1.4.0
+torchvision==0.5.0
+pandas==1.0.3
+tensorboard==2.2.0
+tensorflow==2.2.0
+Keras==2.3.1
+scipy==1.4.1
+matplotlib==3.2.1
+scikit-learn==0.22.2.post1
+TPOT==0.11.5
+joblib==0.16.0
+setuptools==46.1.3
