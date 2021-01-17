@@ -28,6 +28,28 @@ def process_single_ecg_lead(ecg_lead, frequency, borders=(1, 40)):
     return signal.filtfilt(b, a, ecg_lead)
 
 
+def get_diagnosis_str(diagnosis_label):
+    diagnosis_map = {
+        '0': 'Normal',  # Здоров
+        '1': 'Atrial fibrillation (AF)',  # Мерцательная аритмия
+        '2': 'First - degree atrioventricular block (I - AVB)',  # Атриовентрикулярная блокада первой степени
+        '3': 'Left bundle branch block (LBBB)',  # Блокада левой ножки пучка Гиса
+        '4': 'Right bundle branch block (RBBB)',  # Блокада правой ножки пучка Гиса
+        '5': 'Premature atrial contraction (PAC)',  # Преждевременное сокращение предсердий
+        '6': 'Premature ventricular contraction (PVC)',  # Преждевременное сокращение желудочков
+        '7': 'ST - segment depression (STD)',  # ? ST - депрессия сегмента
+        '8': 'ST - segment elevated (STE)'  # ? ST - сегмент повышенный
+    }
+    return diagnosis_map[str(diagnosis_label)]
+
+
+def get_gender_str(gender_str):
+    gender_map = {
+        '0': 'Male',  # Мужской
+        '1': 'Female'  # Женский
+    }
+    return gender_map[str(gender_str)]
+
 def _prove_directory_exists(directory):
     check_array = directory.split('/')
     # if name contains subdirectory we should prove that it is exist
