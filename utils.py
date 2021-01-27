@@ -13,14 +13,32 @@ import models
 MODEL_SAVE_FOLDER = './models'
 
 
+DIAGNOSIS_MAP = {
+    '0': 'Normal',  # Здоров
+    '1': 'Atrial fibrillation (AF)',  # Мерцательная аритмия
+    '2': 'First - degree atrioventricular block (I - AVB)',  # Атриовентрикулярная блокада первой степени
+    '3': 'Left bundle branch block (LBBB)',  # Блокада левой ножки пучка Гиса
+    '4': 'Right bundle branch block (RBBB)',  # Блокада правой ножки пучка Гиса
+    '5': 'Premature atrial contraction (PAC)',  # Преждевременное сокращение предсердий
+    '6': 'Premature ventricular contraction (PVC)',  # Преждевременное сокращение желудочков
+    '7': 'ST - segment depression (STD)',  # ? ST - депрессия сегмента
+    '8': 'ST - segment elevated (STE)'  # ? ST - сегмент повышенный
+}
+
+GENDER_MAP = {
+    '0': 'Male',  # Мужской
+    '1': 'Female'  # Женский
+}
+
+
 # Filter whole ecg with butterworth bandpass filter
-def process_full_ecg(ecg, frequency, borders=(3, 30)):
+def filter_preprocess_full_ecg(ecg, frequency, borders=(3, 30)):
     for i in range(ecg.shape[0]):
-        ecg[i, :] = process_single_ecg_lead(ecg[i, :], frequency, borders)
+        ecg[i, :] = filter_preprocess_single_ecg_lead(ecg[i, :], frequency, borders)
     return ecg
 
 
-def process_single_ecg_lead(ecg_lead, frequency, borders=(1, 40)):
+def filter_preprocess_single_ecg_lead(ecg_lead, frequency, borders=(1, 40)):
     # Filters the single lead of ecg with a butterworth bandpass filter with cutoff frequencies fc=[a, b]
     f0 = 2 * float(borders[0]) / float(frequency)
     f1 = 2 * float(borders[1]) / float(frequency)
@@ -29,26 +47,12 @@ def process_single_ecg_lead(ecg_lead, frequency, borders=(1, 40)):
 
 
 def get_diagnosis_str(diagnosis_label):
-    diagnosis_map = {
-        '0': 'Normal',  # Здоров
-        '1': 'Atrial fibrillation (AF)',  # Мерцательная аритмия
-        '2': 'First - degree atrioventricular block (I - AVB)',  # Атриовентрикулярная блокада первой степени
-        '3': 'Left bundle branch block (LBBB)',  # Блокада левой ножки пучка Гиса
-        '4': 'Right bundle branch block (RBBB)',  # Блокада правой ножки пучка Гиса
-        '5': 'Premature atrial contraction (PAC)',  # Преждевременное сокращение предсердий
-        '6': 'Premature ventricular contraction (PVC)',  # Преждевременное сокращение желудочков
-        '7': 'ST - segment depression (STD)',  # ? ST - депрессия сегмента
-        '8': 'ST - segment elevated (STE)'  # ? ST - сегмент повышенный
-    }
-    return diagnosis_map[str(diagnosis_label)]
+    return DIAGNOSIS_MAP[str(diagnosis_label)]
 
 
 def get_gender_str(gender_str):
-    gender_map = {
-        '0': 'Male',  # Мужской
-        '1': 'Female'  # Женский
-    }
-    return gender_map[str(gender_str)]
+    return GENDER_MAP[str(gender_str)]
+
 
 def _prove_directory_exists(directory):
     check_array = directory.split('/')

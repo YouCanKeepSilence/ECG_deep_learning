@@ -57,7 +57,7 @@ class Loader:
             data['gender'] = data['gender'].astype(np.float32)
             # preprocessing signal
             # utils.draw_ecg(data.iloc[0]['ecg'])
-            data['ecg'] = data['ecg'].apply(lambda x: utils.process_full_ecg(x, frequency=ECG_FREQUENCY))
+            data['ecg'] = data['ecg'].apply(lambda x: utils.filter_preprocess_full_ecg(x, frequency=ECG_FREQUENCY))
             # utils.draw_ecg(data.iloc[0]['ecg'])
         return data
 
