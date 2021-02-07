@@ -32,8 +32,20 @@ GENDER_MAP = {
 }
 
 
-def init_logger():
-    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
+def init_logger(is_colab=False):
+    if is_colab:
+        # Because it work only this way in colab
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)  # was INFO
+
+        ch = logging.StreamHandler()
+        ch.setLevel(logging.DEBUG)  # was INFO
+
+        fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', None)
+        ch.setFormatter(fmt)
+        logger.addHandler(ch)
+    else:
+        logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', level=logging.DEBUG)
 
 
 # Filter whole ecg with butterworth bandpass filter

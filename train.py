@@ -38,6 +38,14 @@ def train(args):
     else:
         logging.info(f'Loading preprocessed df from {args.experimental_df_path}')
         df = dataset.Loader.load_preprocessed_df_from_pickle(args.experimental_df_path)
+
+    if args.enable_weighted_loss:
+        class_distribution = df['label'].value_counts(normalize=True).sort_index().to_numpy()
+        loss_weights = torch.tensor(class_distribution, dtype=torch.float32)
+        logging.info(f'Enabled weighted loss: {loss_weights}')
+    else:
+        loss_weights = torch.tensor(np.ones(args.num_classes).astype(np.float), dtype=torch.float32)
+
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.3)
     logging.info(f'Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
@@ -58,7 +66,7 @@ def train(args):
         net = getattr(models, args.type)(num_classes=args.num_classes)
     if use_cuda:
         net = net.cuda()
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=loss_weights)
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
     logging.info(f'Train started')
     iteration_per_epochs = len(train_loader)
@@ -194,7 +202,10 @@ def main():
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     parser.add_argument('--experimental_df_path', type=str, default=None,
                         help='If provided will use preprocessed df to learn')
+    parser.add_argument('--enable_weighted_loss', action='store_true',
+                        help='use to enable weight on loss function', default=False)
     args = parser.parse_args()
+    # args.experimental_df_path = './df_for_net.pckl'
 
     logging.info(f'Launched with params: {args}')
 
