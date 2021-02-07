@@ -33,17 +33,7 @@ GENDER_MAP = {
 
 
 def init_logger():
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-
-    fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', None)
-    ch.setFormatter(fmt)
-    logger.addHandler(ch)
-
-    # return logger
+    logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s')
 
 
 # Filter whole ecg with butterworth bandpass filter
