@@ -30,7 +30,9 @@ np.random.seed(42)
 
 def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
+    use_cuda = torch.cuda.is_available()
     checkpoint_prefix = f'{args.type}_{datetime.datetime.now()}'
+    logging.info(f'Cuda available: {use_cuda}')
     logging.info(f'Loading data')
     if args.experimental_df_path is None:
         reference_path = f'{args.base_path}/REFERENCE.csv'
@@ -46,13 +48,16 @@ def train(args):
     else:
         loss_weights = torch.tensor(np.ones(args.num_classes).astype(np.float), dtype=torch.float32)
 
+    if use_cuda:
+        loss_weights = loss_weights.cuda()
+
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.3)
     logging.info(f'Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=args.num_workers, shuffle=True)
     test_loader = DataLoader(test_df, batch_size=args.batch, num_workers=args.num_workers, shuffle=True)
-    use_cuda = torch.cuda.is_available()
+
 
     if args.type.startswith('VGG_'):
         net = models.get_vgg(args.type.split('_')[-1], batch_norm=True, num_classes=args.num_classes)
