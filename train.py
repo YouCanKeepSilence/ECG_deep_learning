@@ -42,7 +42,7 @@ def train(args):
         df = dataset.Loader.load_preprocessed_df_from_pickle(args.experimental_df_path)
 
     if args.enable_weighted_loss:
-        class_distribution = 1 / df['label'].value_counts(normalize=True).sort_index().to_numpy()
+        class_distribution = df['label'].value_counts(normalize=True).sort_index().apply(lambda x: 1 - x).to_numpy()
         loss_weights = torch.tensor(class_distribution, dtype=torch.float32)
         logging.info(f'Enabled weighted loss: {loss_weights}')
     else:
