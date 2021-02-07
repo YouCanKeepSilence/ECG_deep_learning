@@ -183,9 +183,11 @@ def launch_xai(model):
     create_reports_directories()
 
     # Prepare model and dataset
-    reference_path = f'{BASE_DATA_PATH}/REFERENCE.csv'
-    data = dataset.Loader(BASE_DATA_PATH, reference_path).load_as_df_for_net(normalize=True)
+    logging.info('Loading df')
+    data = dataset.Loader.load_preprocessed_df_from_pickle('./df_for_net.pckl')
+    logging.info('Creating dataset')
     df = dataset.ECGDataset(data, slices_count=SLICES_COUNT, slice_len=SLICES_LEN, random_state=42)
+    logging.info('Creating loaders')
     loader = DataLoader(df, batch_size=1, num_workers=8, shuffle=False)
     loader_iter = iter(loader)
 

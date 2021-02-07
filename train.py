@@ -32,8 +32,12 @@ def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
     checkpoint_prefix = f'{args.type}_{datetime.datetime.now()}'
     logging.info(f'Loading data')
-    reference_path = f'{args.base_path}/REFERENCE.csv'
-    df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
+    if args.experimental_df_path is None:
+        reference_path = f'{args.base_path}/REFERENCE.csv'
+        df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
+    else:
+        logging.info(f'Loading preprocessed df from {args.experimental_df_path}')
+        df = dataset.Loader.load_preprocessed_df_from_pickle(args.experimental_df_path)
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.3)
     logging.info(f'Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
@@ -81,9 +85,10 @@ def train(args):
                                        iteration_per_epochs, acc, loss, val_acc, val_loss)
         checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{label}).pth')
         utils.save_net_model(net, checkpoint_name)
-        logging.info(f'Checkpoint of epoch {e} saved'
-              f'-----------------------------------------\n'
-              )
+        logging.info(
+            f'Checkpoint of epoch {e} saved'
+            f'-----------------------------------------\n'
+        )
 
 
 def train_ml(args):
@@ -187,6 +192,8 @@ def main():
                                            'RF', 'SVM', 'XGBoost', 'RandomizedRF'], default='CNN',
                         help='Type of Classifier or Network')
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
+    parser.add_argument('--experimental_df_path', type=str, default=None,
+                        help='If provided will use preprocessed df to learn')
     args = parser.parse_args()
 
     logging.info(f'Launched with params: {args}')

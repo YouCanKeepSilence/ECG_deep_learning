@@ -64,6 +64,7 @@ class Loader:
         if save_df:
             logging.info('Saving to buf df')
             self.save_df_to_pickle('./df_for_net.pckl', data)
+            logging.info('Saved to buf df')
 
         return data
 
@@ -100,6 +101,7 @@ class Loader:
         # For NN we use ECGDataset to augmentation
         if augmentation_multiplier > 0:
             data = self._augmentation(data, augmentation_multiplier, augmentation_slice_size)
+
         x = data.drop('label', axis=1).to_numpy(dtype=np.float32)
         y = data['label'].to_numpy(dtype=np.long) - 1
         return x, y

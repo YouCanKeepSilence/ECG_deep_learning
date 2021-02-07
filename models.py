@@ -73,10 +73,11 @@ class CNNFromArticle(nn.Module):
 class CNN(nn.Module):
     def __init__(self, num_classes=9, number_of_channels=12, pooling='max'):
         super(CNN, self).__init__()
+
         if pooling == 'avg':
-            self.pooling = nn.AvgPool1d(kernel_size=3, stride=3)
+            self.pooling_constructor = nn.AvgPool1d
         else:
-            self.pooling = nn.MaxPool1d(kernel_size=3, stride=3)
+            self.pooling_constructor = nn.MaxPool1d
 
         self.num_classes = num_classes
         self.dropout05 = nn.Dropout(0.5)
@@ -87,19 +88,19 @@ class CNN(nn.Module):
             nn.Conv1d(12, 24, kernel_size=3),
             nn.BatchNorm1d(24),
             nn.ReLU(inplace=True),
-            self.pooling
+            self.pooling_constructor(kernel_size=3, stride=3)
         )
         self.conv_2_layer = nn.Sequential(
             nn.Conv1d(24, 48, kernel_size=3),
             nn.BatchNorm1d(48),
             nn.ReLU(inplace=True),
-            self.pooling
+            self.pooling_constructor(kernel_size=3, stride=3)
         )
         self.conv_3_layer = nn.Sequential(
             nn.Conv1d(48, 96, kernel_size=3),
             nn.BatchNorm1d(96),
             nn.ReLU(inplace=True),
-            self.pooling
+            self.pooling_constructor(kernel_size=3, stride=3)
         )
         self.fc_1_layer = nn.Sequential(
             nn.Linear(8736 + 2, 2048),

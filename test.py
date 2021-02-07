@@ -138,10 +138,12 @@ def test(args):
         acc, predictions = eval_ml(x, y, model)
         end_time = datetime.datetime.now()
         delta = (end_time - start_time).total_seconds()
-        logging.info(f'{end_time} {args.type} Inference time: {delta} secs. '
-              f'(Per record: {delta * 1000 / y.shape[0]} msecs / record) \n'
-              f'Full dataset accuracy: {acc} \n'
-              f'Records count: {y.shape[0]} \n')
+        logging.info(
+            f'{end_time} {args.type} Inference time: {delta} secs. '
+            f'(Per record: {delta * 1000 / y.shape[0]} msecs / record) \n'
+            f'Full dataset accuracy: {acc} \n'
+            f'Records count: {y.shape[0]} \n'
+        )
 
         if args.calc_score:
             conf = confusion_matrix(y, predictions)
