@@ -64,7 +64,7 @@ class CNNFromArticle(nn.Module):
         x = self.conv(ecg)
         x = x.view(x.size(0), -1)
         x = torch.cat((non_ecg, x), dim=1)
-        # print(x.size())
+        # logging.info(x.size())
         self.fc(x)
         # we don't need activation here in reason of CrossEntropyLoss usage. It includes LogSoftmax inside
         return x

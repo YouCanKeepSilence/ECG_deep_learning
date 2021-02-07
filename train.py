@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import logging
 import os
 
 import tpot
@@ -30,11 +31,11 @@ np.random.seed(42)
 def train(args):
     writer = SummaryWriter(f'./logs/{args.type}-{datetime.datetime.now()}_batch={args.batch}_slice={args.slice}_mul={args.multiplier}')
     checkpoint_prefix = f'{args.type}_{datetime.datetime.now()}'
-    print(f'{datetime.datetime.now()} Loading data')
+    logging.info(f'Loading data')
     reference_path = f'{args.base_path}/REFERENCE.csv'
     df = dataset.Loader(args.base_path, reference_path).load_as_df_for_net(normalize=True)
     train_df, test_df = sklearn.model_selection.train_test_split(df, random_state=42, test_size=0.3)
-    print(f'{datetime.datetime.now()} Create loaders')
+    logging.info(f'Create loaders')
     train_df = dataset.ECGDataset(train_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     test_df = dataset.ECGDataset(test_df, slices_count=args.multiplier, slice_len=args.slice, random_state=42)
     train_loader = DataLoader(train_df, batch_size=args.batch, num_workers=args.num_workers, shuffle=True)
@@ -55,7 +56,7 @@ def train(args):
         net = net.cuda()
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(net.parameters(), args.lr)
-    print(f'{datetime.datetime.now()} Train started')
+    logging.info(f'Train started')
     iteration_per_epochs = len(train_loader)
     for e in range(args.epochs):
         net.train()
@@ -80,7 +81,7 @@ def train(args):
                                        iteration_per_epochs, acc, loss, val_acc, val_loss)
         checkpoint_name = os.path.join(checkpoint_prefix, f'e_{e}_(step_{label}).pth')
         utils.save_net_model(net, checkpoint_name)
-        print(f'Checkpoint of epoch {e} saved'
+        logging.info(f'Checkpoint of epoch {e} saved'
               f'-----------------------------------------\n'
               )
 
@@ -88,7 +89,7 @@ def train(args):
 def train_ml(args):
     multiplier, slice_size = args.multiplier, args.slice
     reference_path = f'{args.base_path}/REFERENCE.csv'
-    print(f'{datetime.datetime.now()} Loading data')
+    logging.info(f'Loading data')
     x, y = (dataset.Loader(args.base_path, reference_path)
             .load_as_x_y_for_ml(normalize=True,
                                 augmentation_multiplier=multiplier,
@@ -116,14 +117,14 @@ def train_ml(args):
         classifier = tpot.TPOTClassifier(generations=5, population_size=50, verbosity=2, random_state=42, n_jobs=1)
     else:
         raise Exception(f'Unknown classifier name {args.type}')
-    print(f'{datetime.datetime.now()} {args.type} Train started')
+    logging.info(f'{args.type} Train started')
     classifier.fit(x_train, y_train)
-    print(f'{datetime.datetime.now()} {args.type} Train finished')
+    logging.info(f'{args.type} Train finished')
     if args.type == 'TPOT':
         classifier.export('tpot_pipeline.py')
     train_accuracy, _ = test.eval_ml(x_train, y_train, classifier)
     test_accuracy, _ = test.eval_ml(x_test, y_test, classifier)
-    print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    logging.info(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
     if args.type != 'TPOT':
         save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
         utils.save_ml(classifier, save_name)
@@ -132,7 +133,7 @@ def train_ml(args):
 def tune_ml_params(args):
     multiplier, slice_size = args.multiplier, args.slice
     reference_path = f'{args.base_path}/REFERENCE.csv'
-    print(f'{datetime.datetime.now()} Loading data')
+    logging.info(f'Loading data')
     x, y = (dataset.Loader(args.base_path, reference_path)
             .load_as_x_y_for_ml(normalize=True,
                                 augmentation_multiplier=multiplier,
@@ -156,14 +157,14 @@ def tune_ml_params(args):
     else:
         raise Exception(f'Unknown classifier name {args.type}')
     start_time = datetime.datetime.now()
-    print(f'{start_time} {args.type} Train started')
+    logging.info(f'{start_time} {args.type} Train started')
     params_fitter.fit(x_train, y_train)
     end_time = datetime.datetime.now()
-    print(f'{end_time} {args.type} Train finished. Elapsed time {(end_time - start_time).total_seconds()} secs.')
-    print(f'Best params: {params_fitter.best_params_}, Best result: {params_fitter.best_score_}')
+    logging.info(f'{end_time} {args.type} Train finished. Elapsed time {(end_time - start_time).total_seconds()} secs.')
+    logging.info(f'Best params: {params_fitter.best_params_}, Best result: {params_fitter.best_score_}')
     train_accuracy, _ = test.eval_ml(x_train, y_train, params_fitter)
     test_accuracy, _ = test.eval_ml(x_test, y_test, params_fitter)
-    print(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
+    logging.info(f'{args.type} Train acc: {train_accuracy}. Test acc: {test_accuracy}')
     if args.type != 'TPOT':
         save_name = os.path.join(f'{datetime.datetime.now()}_{args.type}', 'model.joblib')
         utils.save_ml(params_fitter, save_name)
@@ -188,7 +189,7 @@ def main():
     parser.add_argument('--base_path', type=str, default='./TrainingSet1', help='Base path to train data directory')
     args = parser.parse_args()
 
-    print(f'{datetime.datetime.now()} Launched with params: {args}')
+    logging.info(f'Launched with params: {args}')
 
     if args.type in ['CNN', 'CNN_a', 'MLP', 'VGGLikeCNN', 'VGGLikeCNN_a',
                      'VGG_11', 'VGG_13', 'VGG_16', 'VGG_19',
@@ -204,6 +205,7 @@ def main():
 
 # Fix to use in colab
 if __name__ == '__main__':
+    utils.init_logger()
     import test
     main()
 else:

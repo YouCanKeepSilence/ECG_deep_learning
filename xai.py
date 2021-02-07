@@ -1,16 +1,17 @@
 import base64
+import datetime
+import logging
 import os
 import uuid
 from io import BytesIO
 
 import matplotlib.pyplot as plt
 import numpy as np
-import plotly.graph_objects as go
 import torch
 import torch.nn.functional as F
+import torch.nn as nn
 from captum.attr import Saliency
 from matplotlib.collections import LineCollection
-from plotly.subplots import make_subplots
 from torch.utils.data import DataLoader
 
 import dataset
@@ -28,25 +29,15 @@ ECG_FREQUENCY = 500.0
 # Сгладить "важность" атрибутов (или сегментов) -> попробовать тем же фильтром что и для сигнала
 # Добавить нормировку и метки с полом и возрастом
 # Добавить на график инфу диагноз, правильный диагноз, пол, возраст и их важность ( в процентах ) - несколько штук или все
+# Рефакторинг, добавить создание отчетов для всех пациентов (сгруппировать по диагнозам и по правильным/неправильным)
 
 # --- todo ---
-# Рефакторинг, добавить создание отчетов для всех пациентов (сгруппировать по диагнозам и по правильным/неправильным)
-# Добавить id пациента в отчет (если есть)
+# confusion matrix + accuracy
+# try another xai methods
+# create fair validate dataset (50 samples from each type)
+# EDA (get from Evgeniy)
+# DenseNet (interesting) /ResNet/LSTM mb try it
 # (much later) calculate f1 at test subsamples
-
-
-def graw_plotly_signal(signal_12_lead, interpretability, non_ecg_data, non_ecg_interpretability):
-    signals_count, signal_len = signal_12_lead.shape
-    fig = make_subplots(rows=signals_count, cols=1)
-    x_ticks = list(range(signal_len))
-    for i in range(signals_count):
-        current_lead = signal_12_lead[i, :]
-        fig.add_trace(
-            go.Scatter(x=x_ticks, y=current_lead, name=f'Lead {i + 1}'),
-            row=(i + 1), col=1
-        )
-
-    fig.show()
 
 
 def generate_html_report(
@@ -142,7 +133,7 @@ def draw_signal_with_interpretability(
         axs[i].set_facecolor('grey')
         # axs[i].grid()
 
-    # print(f'Non ecg_data: {non_ecg_data}. Interpreb: {norm_func(non_ecg_interpretability)}.')
+    # logging.info(f'Non ecg_data: {non_ecg_data}. Interpreb: {norm_func(non_ecg_interpretability)}.')
     # plt.subplots_adjust(wspace=0.05, hspace=0.1)
     plt.tight_layout()
     if need_to_draw:
@@ -150,6 +141,7 @@ def draw_signal_with_interpretability(
     tmp_file = BytesIO()
     fig.savefig(tmp_file, format='png')
     encoded_image = base64.b64encode(tmp_file.getvalue())
+    plt.close(fig)
 
     return encoded_image, norm_func(non_ecg_interpretability)
 
@@ -164,6 +156,25 @@ def create_reports_directories():
         os.makedirs(failed_directory_path, exist_ok=True)
 
 
+def get_saliency_interpretability(
+        model: nn.Module, non_ecg: torch.Tensor, ecg: torch.Tensor, diagnosis: torch.Tensor
+) -> (np.ndarray, np.ndarray):
+    # Required for interpretability (at least for Saliency)
+    non_ecg.requires_grad = True
+    ecg.requires_grad = True
+
+    # Create interpretability method
+    saliency = Saliency(model)
+
+    # Get interpretation
+    non_ecg_grads, ecg_grads = saliency.attribute((non_ecg, ecg), target=diagnosis.item())
+    # Preprocess interpretation (because they are tensors)
+    # .squeeze убирает все axis с размерностью 1, в данном случае мы избавляемся от батча
+    ecg_grads_numpy = ecg_grads.squeeze().cpu().detach().numpy()
+    non_ecg_grads_numpy = non_ecg_grads.squeeze().cpu().detach().numpy()
+    return non_ecg_grads_numpy, ecg_grads_numpy
+
+
 def launch_xai(model):
     # Set model to .eval mode
     model.eval()
@@ -175,29 +186,23 @@ def launch_xai(model):
     reference_path = f'{BASE_DATA_PATH}/REFERENCE.csv'
     data = dataset.Loader(BASE_DATA_PATH, reference_path).load_as_df_for_net(normalize=True)
     df = dataset.ECGDataset(data, slices_count=SLICES_COUNT, slice_len=SLICES_LEN, random_state=42)
-    loader = DataLoader(df, batch_size=1, shuffle=False)
+    loader = DataLoader(df, batch_size=1, num_workers=8, shuffle=False)
     loader_iter = iter(loader)
 
+    df_len = len(df)
+    logging.info(f'Dataset length is {df_len}')
+
     # Calculate importance and create reports (TODO move to function)
-    for i in range(len(df)):
+    for i in range(df_len):
         non_ecg, ecg, diagnosis = next(loader_iter)
         # Save data to keep original data (both to evaluate and to print in report)
         non_ecg_numpy = non_ecg.squeeze().cpu().detach().numpy()
         ecg_numpy = ecg.squeeze().cpu().detach().numpy()
 
-        # Required for interpretability (at least for Saliency)
-        non_ecg.requires_grad = True
-        ecg.requires_grad = True
-
-        # Create interpretability method
-        saliency = Saliency(model)
-
-        # Get interpretation
-        non_ecg_grads, ecg_grads = saliency.attribute((non_ecg, ecg), target=diagnosis)
-        # Preprocess interpretation (because they are tensors)
-        # .squeeze убирает все axis с размерностью 1, в данном случае мы избавляемся от батча
-        ecg_grads_numpy = ecg_grads.squeeze().cpu().detach().numpy()
-        non_ecg_grads_numpy = non_ecg_grads.squeeze().cpu().detach().numpy()
+        # Get interpreb
+        non_ecg_grads_numpy, ecg_grads_numpy = get_saliency_interpretability(
+            model, non_ecg, ecg, diagnosis
+        )
 
         # Get original model prediction with confidence
         out = F.softmax(model(non_ecg, ecg), 1)
@@ -219,11 +224,12 @@ def launch_xai(model):
         diagnosis = diagnosis.item()
         last_folder_name = 'success' if net_diagnosis == diagnosis else 'failed'
         save_path = os.path.join(REPORT_BASE_PATH, str(diagnosis), last_folder_name, f'{uuid.uuid4()}.html')
-        print(f'Saving {i} to {save_path}')
+        logging.info(f'Saving {i} to {save_path}')
         with open(save_path, 'w') as file:
             file.write(html)
 
 
 if __name__ == '__main__':
+    utils.init_logger()
     _model = utils.create_model_by_name('CNN_a', 'CNN_a/CNN_a_with_preprocessing.pth')
     launch_xai(_model)

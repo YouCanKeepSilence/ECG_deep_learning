@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 from scipy import signal
 from collections import namedtuple
@@ -29,6 +30,20 @@ GENDER_MAP = {
     '0': 'Male',  # Мужской
     '1': 'Female'  # Женский
 }
+
+
+def init_logger():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+
+    fmt = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', None)
+    ch.setFormatter(fmt)
+    logger.addHandler(ch)
+
+    # return logger
 
 
 # Filter whole ecg with butterworth bandpass filter
@@ -98,8 +113,7 @@ def draw(args):
 def write_checkpoint(writer, e, epochs, i, iteration_per_epochs, acc, loss, val_acc, val_loss):
     in_epoch_progress = round(i / iteration_per_epochs, 2)
     full_progress = round((e * iteration_per_epochs + i) / (epochs * iteration_per_epochs), 2)
-    print(f'{datetime.datetime.now()}\n '
-          f'Epoch: {e}/{epochs}, Iteration: {i}/{iteration_per_epochs}, '
+    logging.info(f'Epoch: {e}/{epochs}, Iteration: {i}/{iteration_per_epochs}, '
           f'In epoch progress ({in_epoch_progress * 100} %)\n'
           f'Full progress {full_progress * 100} %\n'
           f'Loss: {loss.item()} , Acc: {acc} \n'

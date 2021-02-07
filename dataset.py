@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 
 import numpy as np
@@ -44,7 +45,7 @@ class Loader:
 
         return res
 
-    def load_as_df_for_net(self, normalize=True):
+    def load_as_df_for_net(self, normalize=True, save_df=False):
         data = self._prepare_input(flatten=False)
         names_array = ['gender', 'age', 'label', 'ecg']
         data = pd.DataFrame.from_records(data, index=list(range(0, len(data))), columns=names_array)
@@ -56,10 +57,30 @@ class Loader:
             data.at[data['gender'] == 'Female', 'gender'] = 1
             data['gender'] = data['gender'].astype(np.float32)
             # preprocessing signal
-            # utils.draw_ecg(data.iloc[0]['ecg'])
             data['ecg'] = data['ecg'].apply(lambda x: utils.filter_preprocess_full_ecg(x, frequency=ECG_FREQUENCY))
-            # utils.draw_ecg(data.iloc[0]['ecg'])
+
+        data['label'] -= 1
+
+        if save_df:
+            logging.info('Saving to buf df')
+            self.save_df_to_pickle('./df_for_net.pckl', data)
+
         return data
+
+    @staticmethod
+    def load_preprocessed_df_from_pickle(path: str, **kwargs) -> pd.DataFrame:
+        """
+        Loading df from pickle, to improve performance
+        :param path: path to pickle file
+        :param kwargs:
+            compression - if used compression on saving
+        :return: pandas dataframe with preprocessed data
+        """
+        return pd.read_pickle(path, **kwargs)
+
+    @staticmethod
+    def save_df_to_pickle(path: str, df: pd.DataFrame, **kwargs):
+        df.to_pickle(path, **kwargs)
 
     def load_as_x_y_for_ml(self, normalize=True, *,
                            augmentation_multiplier=0, augmentation_slice_size=2500, check_to_na=False):
@@ -180,7 +201,7 @@ class ECGDataset(data_utils.Dataset):
         self.data = data
         self.data_len = len(data)
         self.non_ecg_numpy = self.data[['age', 'gender']].to_numpy()
-        self.labels_numpy = self.data['label'].to_numpy() - 1
+        self.labels_numpy = self.data['label'].to_numpy()
 
     def __len__(self):
         # We just show that ds is larger on slices_count times
